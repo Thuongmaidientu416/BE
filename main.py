@@ -58,7 +58,9 @@ def on_startup():
 # ── Health check ─────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "service": "WanderHUB Backend"}
+    import os
+    groq_set = bool(os.getenv("GROQ_API_KEY", ""))
+    return {"status": "ok", "service": "WanderHUB Backend", "groq_key_set": groq_set}
 
 
 # ── Run ──────────────────────────────────────────────────────────
