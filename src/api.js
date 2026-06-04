@@ -3,7 +3,7 @@
  * Centralized fetch wrapper for backend communication.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '');
+const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://api.wanderhub.com'); // TODO: Đổi thành URL Backend mới của bạn (ví dụ Render)
 
 /**
  * Get the stored JWT token.
