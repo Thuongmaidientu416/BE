@@ -12,23 +12,20 @@ dist/
 reference_frames/
 wanderhub-video/
 
-# Keep generated/local project copies out of the frontend commit.
+# Keep generated/local project copies out of the main commit.
 FE/
-api/
-backend/
 anhcontent/
 exports/
 __pycache__/
 *.pyc
 *.db
+!wanderhub.db
 *.sql
 *.docx
 *.pptx
-requirements.txt
 build_wanderhub_db.py
 export_frontend_data.py
 frontend_template_plan.md
 README_WanderHUB_backend.md
 test
 test.py
-vercel.json

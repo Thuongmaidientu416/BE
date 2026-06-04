@@ -1,0 +1,59 @@
+"""
+WanderHUB Backend — FastAPI Application Entry Point
+
+Start with:
+    cd backend
+    python main.py
+    # or: uvicorn main:app --reload --host 127.0.0.1 --port 8000
+"""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from config import CORS_ORIGINS
+from database import init_db
+from routers import auth, providers, landing, itinerary, chat, contact, interactions
+
+# ── Create app ────────────────────────────────────────────────────
+app = FastAPI(
+    title="WanderHUB API",
+    description="Backend API cho WanderHUB — AI trip planner cho trải nghiệm đô thị TP.HCM.",
+    version="1.0.0",
+)
+
+# ── CORS ──────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Register routers ─────────────────────────────────────────────
+app.include_router(auth.router)
+app.include_router(providers.router)
+app.include_router(landing.router)
+app.include_router(itinerary.router)
+app.include_router(chat.router)
+app.include_router(contact.router)
+app.include_router(interactions.router)
+
+
+# ── Startup ──────────────────────────────────────────────────────
+@app.on_event("startup")
+def on_startup():
+    init_db()
+    print("[WanderHUB] Backend started — API docs at http://127.0.0.1:8000/docs")
+
+
+# ── Health check ─────────────────────────────────────────────────
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "service": "WanderHUB Backend"}
+
+
+# ── Run ──────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
