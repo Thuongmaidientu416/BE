@@ -3038,3 +3038,231 @@ select option {
     right: 16px;
   }
 }
+
+/* ===== Journey Tracker (Layout A) ===== */
+
+.journey-tracker-panel {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(45, 90, 61, 0.15);
+  border-radius: 20px;
+  overflow: hidden;
+  background: #fdf8f3;
+}
+
+.journey-tracker-inner {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  min-height: 420px;
+}
+
+.journey-tracker-map-wrap {
+  position: relative;
+  background: #e8f0ea;
+  min-height: 420px;
+}
+
+.journey-tracker-map-wrap > div {
+  height: 100%;
+  min-height: 420px;
+}
+
+.journey-tracker-timeline {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px;
+  background: #fff;
+  border-left: 1px solid rgba(45, 90, 61, 0.1);
+  overflow-y: auto;
+  max-height: 520px;
+}
+
+.journey-tracker-timeline-head {
+  margin-bottom: 14px;
+}
+
+.journey-tracker-timeline-head strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 900;
+  color: #1e4230;
+}
+
+.journey-tracker-timeline-head small {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: rgba(30, 66, 48, 0.55);
+}
+
+.journey-tracker-leg {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.journey-tracker-leg::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 28px;
+  bottom: 0;
+  width: 2px;
+  background: rgba(45, 90, 61, 0.15);
+}
+
+.journey-tracker-leg:last-child::before {
+  display: none;
+}
+
+.journey-tracker-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.journey-tracker-pin.is-current {
+  background: #c96420;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(201, 100, 32, 0.18);
+}
+
+.journey-tracker-pin.is-next {
+  background: #2d5a3d;
+  color: #fff;
+}
+
+.journey-tracker-pin.is-waiting {
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+
+.journey-tracker-leg-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.journey-tracker-leg-info b {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e4230;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.journey-tracker-leg-info small {
+  display: block;
+  font-size: 11px;
+  color: rgba(30, 66, 48, 0.55);
+  margin-top: 2px;
+}
+
+.journey-tracker-status {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.journey-tracker-status.current {
+  background: rgba(201, 100, 32, 0.12);
+  color: #c96420;
+}
+
+.journey-tracker-status.next {
+  background: rgba(45, 90, 61, 0.1);
+  color: #2d5a3d;
+}
+
+.journey-tracker-status.waiting {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.journey-tracker-booking {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid rgba(45, 90, 61, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.journey-tracker-booking-note {
+  font-size: 11px;
+  color: rgba(30, 66, 48, 0.55);
+  line-height: 1.5;
+}
+
+.journey-tracker-btn-be {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #f59e0b;
+  color: #1c1917;
+  font-size: 13px;
+  font-weight: 900;
+  border-radius: 12px;
+  padding: 10px 14px;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.journey-tracker-btn-be:hover { opacity: 0.88; }
+
+.journey-tracker-btn-xanh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  border-radius: 12px;
+  padding: 10px 14px;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.journey-tracker-btn-xanh:hover { opacity: 0.88; }
+
+.journey-tracker-walk-note {
+  background: rgba(45, 90, 61, 0.07);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #2d5a3d;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .journey-tracker-inner {
+    grid-template-columns: 1fr;
+  }
+  .journey-tracker-map-wrap {
+    min-height: 240px;
+  }
+  .journey-tracker-map-wrap > div {
+    min-height: 240px;
+  }
+  .journey-tracker-timeline {
+    border-left: none;
+    border-top: 1px solid rgba(45, 90, 61, 0.1);
+    max-height: none;
+  }
+}

@@ -2611,6 +2611,149 @@ function Planner() {
   );
 }
 
+const HCM_FALLBACK_COORDS = [
+  [10.7769, 106.7009],
+  [10.7800, 106.7050],
+  [10.7720, 106.6980],
+  [10.7740, 106.7030],
+  [10.7760, 106.7070],
+];
+
+function JourneyTracker({ rideLegs, transport, totalRideMinutes }) {
+  const mapContainerRef = useRef(null);
+  const leafletInstanceRef = useRef(null);
+  const [activeIndex] = useState(0);
+
+  const getCoords = (leg, index) => {
+    if (leg.latitude && leg.longitude) return [leg.latitude, leg.longitude];
+    return HCM_FALLBACK_COORDS[index % HCM_FALLBACK_COORDS.length];
+  };
+
+  useEffect(() => {
+    const L = window.L;
+    if (!L || !mapContainerRef.current || leafletInstanceRef.current) return;
+
+    const coords = rideLegs.map((leg, i) => getCoords(leg, i));
+    const center = coords[0] || [10.7769, 106.7009];
+
+    const map = L.map(mapContainerRef.current, { zoomControl: true, scrollWheelZoom: false }).setView(center, 14);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap",
+      maxZoom: 18,
+    }).addTo(map);
+
+    if (coords.length > 1) {
+      L.polyline(coords, { color: "#2d5a3d", weight: 3, dashArray: "6 4", opacity: 0.8 }).addTo(map);
+    }
+
+    coords.forEach((coord, index) => {
+      const isFirst = index === 0;
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="
+          width:28px;height:28px;border-radius:50%;
+          background:${isFirst ? "#c96420" : "#2d5a3d"};
+          color:#fff;display:flex;align-items:center;justify-content:center;
+          font-size:12px;font-weight:900;
+          box-shadow:0 2px 8px rgba(0,0,0,0.25);
+          border:2px solid #fff;
+        ">${index + 1}</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+      L.marker(coord, { icon })
+        .addTo(map)
+        .bindPopup(`<b>${rideLegs[index].title}</b><br><small>${rideLegs[index].time || ""}</small>`);
+    });
+
+    if (coords.length > 1) {
+      const bounds = L.latLngBounds(coords);
+      map.fitBounds(bounds, { padding: [40, 40] });
+    }
+
+    leafletInstanceRef.current = map;
+    return () => {
+      map.remove();
+      leafletInstanceRef.current = null;
+    };
+  }, []);
+
+  const isRide = transport === "Be / Xanh SM";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="journey-tracker-panel"
+    >
+      <div className="journey-tracker-inner">
+        <div className="journey-tracker-map-wrap">
+          <div ref={mapContainerRef} />
+        </div>
+
+        <div className="journey-tracker-timeline">
+          <div className="journey-tracker-timeline-head">
+            <strong>Theo dõi hành trình</strong>
+            <small>{rideLegs.length} điểm · {totalRideMinutes} phút di chuyển</small>
+          </div>
+
+          {rideLegs.map((leg, index) => {
+            const status = index === activeIndex ? "current" : index === activeIndex + 1 ? "next" : "waiting";
+            return (
+              <div key={`tracker-${leg.provider_id || leg.title}-${index}`} className="journey-tracker-leg">
+                <div className={`journey-tracker-pin ${status === "current" ? "is-current" : status === "next" ? "is-next" : "is-waiting"}`}>
+                  {index + 1}
+                </div>
+                <div className="journey-tracker-leg-info">
+                  <b>{leg.title}</b>
+                  <small>{leg.time || leg.rideLabel}{index > 0 && leg.travelFromPrevious ? ` · ${leg.travelFromPrevious} phút từ điểm trước` : ""}</small>
+                </div>
+                <span className={`journey-tracker-status ${status}`}>
+                  {status === "current" ? "Đang đến" : status === "next" ? "Tiếp theo" : "Chờ"}
+                </span>
+              </div>
+            );
+          })}
+
+          <div className="journey-tracker-booking">
+            {isRide ? (
+              <>
+                <p className="journey-tracker-booking-note">
+                  Ứng dụng sẽ nhận danh sách điểm dừng — copy tên điểm để nhập nhanh vào app.
+                </p>
+                <a
+                  href="https://be.com.vn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="journey-tracker-btn-be"
+                >
+                  <Car size={15} /> Mở Be
+                </a>
+                <a
+                  href="https://xanhsm.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="journey-tracker-btn-xanh"
+                >
+                  <Car size={15} /> Mở Xanh SM
+                </a>
+              </>
+            ) : (
+              <div className="journey-tracker-walk-note">
+                {transport === "Đi bộ thong thả"
+                  ? "Bắt đầu đi bộ và theo dõi tiến độ từng điểm trên bản đồ."
+                  : "Khởi động xe và theo dõi hành trình trên bản đồ."}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 function PlannerV2() {
   const moodOptions = [
     { code: "chill", label: "Chill", hint: "Cafe, dạo phố, nhịp nhẹ", icon: Coffee },
@@ -3199,43 +3342,13 @@ function PlannerV2() {
                   </button>
                 </div>
                 {showRideBooking ? (
-                  <div className="ride-booking-panel">
-                    <div className="ride-map">
-                      <div className="ride-map-line" />
-                      {rideLegs.map((item, index) => (
-                        <div key={`${item.provider_id || item.title}-map-${index}`} className={`ride-map-pin pin-${index + 1}`}>
-                          <MapPin size={16} />
-                          <span>{index + 1}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="ride-booking-detail">
-                      <div className="ride-booking-head">
-                        <div>
-                          <strong>Bản đồ check-in {rideLegs.length} vị trí</strong>
-                          <small>Thời gian di chuyển được gán ở bước đặt xe để bên thứ ba nhận cuốc xử lý.</small>
-                        </div>
-                        <span>{totalRideMinutes || 0} phút di chuyển</span>
-                      </div>
-                      <div className="ride-leg-list">
-                        {rideLegs.map((item, index) => (
-                          <div key={`${item.provider_id || item.title}-ride-${index}`} className="ride-leg-row">
-                            <i>{index + 1}</i>
-                            <div>
-                              <b>{item.title}</b>
-                              <small>{item.rideLabel} · {index === 0 ? "bắt đầu tại điểm đã chọn" : `${item.travelFromPrevious} phút từ điểm trước`}</small>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <button type="button" className="ride-confirm-btn">
-                        <Car size={16} /> Gửi tuyến cho đối tác vận chuyển
-                      </button>
-                    </div>
-                  </div>
+                  <JourneyTracker
+                    rideLegs={rideLegs}
+                    transport={transport}
+                    totalRideMinutes={totalRideMinutes}
+                  />
                 ) : null}
               </div>
-              <div className="map-strip flex items-center gap-3 justify-center mt-2"><RouteIcon /> Sẵn sàng kết nối Xanh SM di chuyển</div>
             </motion.div>
           ) : (
             <div className="flex flex-col items-center justify-center min-h-[350px] text-center text-stone-400">
