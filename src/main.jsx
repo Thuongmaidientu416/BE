@@ -3150,10 +3150,10 @@ function PlannerV2() {
                   <div className="commercial-suggestion-panel">
                     <div className="commercial-suggestion-head">
                       <div>
-                        <strong>Hidden gem / đối tác gợi ý thêm</strong>
-                        <small>Nằm ngoài 6 điểm AI chính, khách có thể chọn thêm nếu muốn trải nghiệm dịch vụ mới.</small>
+                        <strong>✨ Ngoài ra, có thể bạn quan tâm</strong>
+                        <small>Được đề xuất từ đối tác mới — không nằm trong tuyến AI chính.</small>
                       </div>
-                      <span>Partner seed</span>
+                      <span>Đối tác</span>
                     </div>
                     <div className="commercial-suggestion-grid">
                       {commercialSuggestions.map((item, index) => (
