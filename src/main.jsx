@@ -2624,14 +2624,19 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes }) {
   const leafletInstanceRef = useRef(null);
   const [activeIndex] = useState(0);
 
-  const getCoords = (leg, index) => {
-    if (leg.latitude && leg.longitude) return [leg.latitude, leg.longitude];
-    return HCM_FALLBACK_COORDS[index % HCM_FALLBACK_COORDS.length];
-  };
-
   useEffect(() => {
     const L = window.L;
-    if (!L || !mapContainerRef.current || leafletInstanceRef.current) return;
+    if (!L || !mapContainerRef.current) return;
+
+    if (leafletInstanceRef.current) {
+      leafletInstanceRef.current.remove();
+      leafletInstanceRef.current = null;
+    }
+
+    const getCoords = (leg, index) => {
+      if (leg.latitude && leg.longitude) return [leg.latitude, leg.longitude];
+      return HCM_FALLBACK_COORDS[index % HCM_FALLBACK_COORDS.length];
+    };
 
     const coords = rideLegs.map((leg, i) => getCoords(leg, i));
     const center = coords[0] || [10.7769, 106.7009];
@@ -2639,7 +2644,7 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes }) {
     const map = L.map(mapContainerRef.current, { zoomControl: true, scrollWheelZoom: false }).setView(center, 14);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap",
+      attribution: "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
       maxZoom: 18,
     }).addTo(map);
 
@@ -2677,7 +2682,7 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes }) {
       map.remove();
       leafletInstanceRef.current = null;
     };
-  }, []);
+  }, [rideLegs]);
 
   const isRide = transport === "Be / Xanh SM";
 
@@ -3341,7 +3346,7 @@ function PlannerV2() {
                     <Car size={16} /> Tiếp tục đặt xe
                   </button>
                 </div>
-                {showRideBooking ? (
+                {showRideBooking && rideLegs.length > 0 ? (
                   <JourneyTracker
                     rideLegs={rideLegs}
                     transport={transport}
