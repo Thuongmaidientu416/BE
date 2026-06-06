@@ -334,7 +334,7 @@ function Navbar({ user, onLogout }) {
               <NavLink id="nav-btn-login" to="/auth" className="btn btn-ghost">
                 Đăng nhập
               </NavLink>
-              <NavLink id="nav-btn-planner" to={user ? "/planner" : "/auth"} className="btn btn-primary">
+              <NavLink id="nav-btn-planner" to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} className="btn btn-primary">
                 Bắt đầu lên lịch trình
               </NavLink>
             </>
@@ -370,7 +370,7 @@ function Navbar({ user, onLogout }) {
                 <NavLink id="nav-mobile-btn-login" to="/auth" onClick={() => setOpen(false)} className="btn btn-ghost w-full justify-center">
                   Đăng nhập
                 </NavLink>
-                <NavLink id="nav-mobile-btn-planner" to={user ? "/planner" : "/auth"} onClick={() => setOpen(false)} className="btn btn-primary w-full justify-center">
+                <NavLink id="nav-mobile-btn-planner" to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} onClick={() => setOpen(false)} className="btn btn-primary w-full justify-center">
                   Bắt đầu lên lịch trình
                 </NavLink>
               </div>
@@ -403,7 +403,7 @@ function Footer({ user }) {
           <NavLink to="/faq" className="text-[#3d2b1a]/62 hover:text-cyan">FAQ</NavLink>
           <NavLink to="/terms" className="text-[#3d2b1a]/62 hover:text-cyan">Terms & Policies</NavLink>
           <NavLink to="/auth" className="text-[#3d2b1a]/62 hover:text-cyan">Login / Register</NavLink>
-          <NavLink to={user ? "/planner" : "/auth"} className="text-[#3d2b1a]/62 hover:text-cyan">AI Trip Planner</NavLink>
+          <NavLink to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} className="text-[#3d2b1a]/62 hover:text-cyan">AI Trip Planner</NavLink>
         </div>
       </div>
     </footer>
@@ -1452,7 +1452,7 @@ function Home({ user }) {
               đúng gu của bạn.
             </p>
             <div className="flex gap-4 mt-8 pointer-events-auto">
-              <NavLink to={user ? "/planner" : "/auth"} className="btn btn-primary hero-main-cta">
+              <NavLink to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} className="btn btn-primary hero-main-cta">
                 Lên lịch trình ngay <ArrowRight size={18} />
               </NavLink>
               <button 
@@ -1527,7 +1527,7 @@ function Home({ user }) {
             ))}
           </div>
           <div className="text-center mt-10">
-            <NavLink to={user ? "/planner" : "/auth"} className="btn btn-primary inline-flex items-center gap-2">
+            <NavLink to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} className="btn btn-primary inline-flex items-center gap-2">
               Thử tạo lịch trình ngay <ArrowRight size={16} />
             </NavLink>
           </div>
@@ -1549,7 +1549,7 @@ function Home({ user }) {
                 Bằng sự kết hợp giữa trí tuệ nhân tạo thông minh và kiến thức bản địa sâu sắc, WanderHUB tối ưu hóa từng tuyến đường di chuyển,
                 giúp bạn tiết kiệm thời gian mà vẫn tận hưởng trọn vẹn những điểm đến tinh tế nhất.
               </p>
-              <NavLink to={user ? "/planner" : "/auth"} className="btn btn-primary">
+              <NavLink to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} className="btn btn-primary">
                 Trải Nghiệm Ngay <ChevronRight size={16} />
               </NavLink>
             </Reveal>
@@ -1854,7 +1854,7 @@ function Home({ user }) {
               Bắt đầu hành trình thiết lập lịch trình trải nghiệm đô thị Sài Gòn trọn vẹn chỉ với 3 giây chọn mood cùng WanderHUB.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <NavLink to={user ? "/planner" : "/auth"} className="btn bg-white text-[#1e4230] hover:bg-stone-100 border-none px-8 py-4 shadow-lg hover:shadow-xl transition-all font-bold">
+              <NavLink to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} className="btn bg-white text-[#1e4230] hover:bg-stone-100 border-none px-8 py-4 shadow-lg hover:shadow-xl transition-all font-bold">
                 Lên lịch trình ngay <ArrowRight size={18} />
               </NavLink>
               <NavLink to="/explore" className="btn btn-glass text-white border-white/20 hover:bg-white/10 px-8 py-4 backdrop-blur-md">
@@ -1892,7 +1892,11 @@ function PricingGrid({ preview = false, user = null }) {
               </div>
             ))}
           </div>
-          <NavLink to={user ? "/planner" : "/auth"} className="btn btn-glass mt-7 w-full justify-center">
+          <NavLink
+            to={user ? "/planner" : "/auth"}
+            onClick={() => user && localStorage.setItem("wh_selected_plan", plan.name)}
+            className="btn btn-glass mt-7 w-full justify-center"
+          >
             {plan.price === "Miễn phí" ? "Dùng miễn phí" : plan.highlight ? "Bắt đầu Premium" : "Chọn gói này"}
           </NavLink>
         </Reveal>
@@ -1985,7 +1989,7 @@ function Pricing({ user }) {
             Nếu Premium không đáp ứng kỳ vọng, chúng tôi hoàn tiền đầy đủ trong vòng 7 ngày đầu sử dụng. Không cần giải thích.
           </p>
         </div>
-        <NavLink to={user ? "/planner" : "/auth"} className="btn btn-primary shrink-0">Thử ngay miễn phí</NavLink>
+        <NavLink to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} className="btn btn-primary shrink-0">Thử ngay</NavLink>
       </Reveal>
 
       {/* Inline FAQ */}
@@ -2475,6 +2479,10 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes }) {
   );
 }
 
+function hasPlan() {
+  return !!localStorage.getItem("wh_selected_plan");
+}
+
 const FREE_MONTHLY_LIMIT = 2;
 
 function getFreeUsageData() {
@@ -2833,7 +2841,12 @@ function PlannerV2() {
     }
   };
 
+  const navigate = useNavigate();
   useEffect(() => {
+    if (!localStorage.getItem("wh_selected_plan")) {
+      navigate("/pricing", { replace: true });
+      return;
+    }
     if (didAutoGenerateRef.current) return;
     didAutoGenerateRef.current = true;
     const timer = window.setTimeout(() => {
