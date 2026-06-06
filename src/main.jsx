@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { createRoot } from "react-dom/client";
@@ -57,9 +58,10 @@ const packages = [
   {
     name: "Basic",
     price: "Miễn phí",
-    note: "Dành cho người mới trải nghiệm WanderHUB — giới hạn 2 lịch trình AI mỗi tháng.",
+    priceAmount: 0,
+    note: "Dành cho người mới trải nghiệm WanderHUB — 1 lịch trình AI mỗi 20 ngày.",
     features: [
-      "Tạo lịch trình AI (2 lần/tháng)",
+      "Tạo lịch trình AI (1 lần / 20 ngày)",
       "Khám phá địa điểm cơ bản",
       "Gợi ý theo mood & khu vực",
       "Bản đồ hành trình",
@@ -74,6 +76,7 @@ const packages = [
   {
     name: "Premium",
     price: "89.000 VNĐ/tháng",
+    priceAmount: 89000,
     note: "Gói tốt nhất cho người đi chơi thường xuyên tại TP.HCM.",
     highlight: true,
     features: [
@@ -88,7 +91,8 @@ const packages = [
   },
   {
     name: "International Tourist",
-    price: "Từ 199.000 VNĐ/hành trình",
+    price: "199.000 VNĐ/hành trình",
+    priceAmount: 199000,
     note: "Trợ lý đô thị cho du khách quốc tế khám phá TP.HCM.",
     features: [
       "Trợ lý ảo đa ngôn ngữ (EN/JP/KR)",
@@ -1882,12 +1886,105 @@ function Home({ user }) {
 
 const PLAN_KEYS = { "Basic": "basic", "Premium": "premium", "International Tourist": "international" };
 
-function PricingGrid({ preview = false, user = null, setUserPlan = null }) {
+function PaymentModal({ plan, onConfirm, onCancel }) {
+  const [step, setStep] = useState("qr"); // "qr" | "verifying" | "done"
+  const refCode = useRef(`WH${Date.now().toString(36).toUpperCase().slice(-6)}`);
+  const qrValue = `WANDERHUB|PLAN:${PLAN_KEYS[plan.name]}|AMT:${plan.priceAmount}VND|REF:${refCode.current}`;
+
+  const bankInfo = [
+    { label: "Ngân hàng", value: "VietcomBank" },
+    { label: "Số tài khoản", value: "1020 4918 7263" },
+    { label: "Chủ tài khoản", value: "CONG TY WANDERHUB" },
+    { label: "Số tiền", value: plan.price },
+    { label: "Nội dung CK", value: `WANDERHUB ${(PLAN_KEYS[plan.name] || "").toUpperCase()} ${refCode.current}` },
+  ];
+
+  const handleConfirm = async () => {
+    setStep("verifying");
+    await new Promise((r) => setTimeout(r, 1600));
+    setStep("done");
+    await new Promise((r) => setTimeout(r, 700));
+    onConfirm();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onCancel()}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="bg-[#1e4230] px-6 py-5 flex items-center justify-between">
+          <div>
+            <p className="text-white/60 text-xs uppercase tracking-widest mb-0.5">Thanh toán</p>
+            <h2 className="text-white text-lg font-bold">Gói {plan.name}</h2>
+            <p className="text-emerald-300 text-sm font-semibold mt-0.5">{plan.price}</p>
+          </div>
+          <button onClick={onCancel} className="text-white/50 hover:text-white transition p-1">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-stone-100">
+          {/* Left: features */}
+          <div className="p-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-3">Bạn sẽ nhận được</p>
+            <div className="grid gap-2.5">
+              {plan.features.map((f) => (
+                <div key={f} className="flex gap-2.5 text-sm text-[#3d2b1a]/75">
+                  <Check size={15} className="shrink-0 text-emerald-600 mt-0.5" /> {f}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: QR + bank info */}
+          <div className="p-6 flex flex-col items-center gap-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">Quét mã QR để thanh toán</p>
+            <div className="p-3 rounded-xl border-2 border-[#2d5a3d]/15 bg-white shadow-sm">
+              <QRCodeSVG value={qrValue} size={156} bgColor="#ffffff" fgColor="#1e4230" level="M" includeMargin={false} />
+            </div>
+            <div className="w-full rounded-xl bg-stone-50 border border-stone-100 p-3.5 text-xs grid gap-1.5">
+              {bankInfo.map(({ label, value }) => (
+                <div key={label} className="flex items-start justify-between gap-3">
+                  <span className="text-stone-400 shrink-0">{label}</span>
+                  <span className="font-semibold text-stone-700 text-right">{value}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-center text-stone-400">Sau khi chuyển khoản thành công, nhấn xác nhận bên dưới</p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-stone-100 px-6 py-4 flex gap-3">
+          <button onClick={onCancel} disabled={step !== "qr"} className="btn btn-ghost flex-1 justify-center">
+            Hủy
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={step !== "qr"}
+            className="btn btn-primary flex-1 justify-center"
+          >
+            {step === "verifying" && "Đang xác minh..."}
+            {step === "done" && "✓ Thành công!"}
+            {step === "qr" && "Xác nhận đã thanh toán"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function PricingGrid({ preview = false, user = null, userPlan = null, setUserPlan = null }) {
   const navigate = useNavigate();
   const [selecting, setSelecting] = useState(null);
+  const [paymentPlan, setPaymentPlan] = useState(null);
 
-  const handleSelectPlan = async (plan) => {
-    if (!user) { navigate("/auth"); return; }
+  const savePlan = async (plan) => {
     const planKey = PLAN_KEYS[plan.name] || "basic";
     setSelecting(plan.name);
     try {
@@ -1904,44 +2001,75 @@ function PricingGrid({ preview = false, user = null, setUserPlan = null }) {
     }
   };
 
+  const handleSelectPlan = (plan) => {
+    if (!user) { navigate("/auth"); return; }
+    if (plan.priceAmount === 0) {
+      savePlan(plan);
+    } else {
+      setPaymentPlan(plan);
+    }
+  };
+
   return (
-    <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
-      {packages.map((plan) => (
-        <Reveal key={plan.name} className={`price-card ${plan.highlight ? "featured" : ""}`}>
-          <div className="flex items-center justify-between">
-            <h3>{plan.name}</h3>
-            {plan.highlight && <span className="badge">Best vibe</span>}
-          </div>
-          <div className="mt-4 text-2xl font-black text-[#1e4230]">{plan.price}</div>
-          <p className="mt-3 text-sm leading-6 text-[#3d2b1a]/62">{plan.note}</p>
-          <div className="mt-6 grid gap-2.5">
-            {(preview ? plan.features.slice(0, 3) : plan.features).map((feature) => (
-              <div key={feature} className="flex gap-3 text-sm text-[#3d2b1a]/75">
-                <Check size={16} className="shrink-0 text-emerald-600 mt-0.5" /> {feature}
+    <>
+      {paymentPlan && (
+        <AnimatePresence>
+          <PaymentModal
+            plan={paymentPlan}
+            onConfirm={() => { setPaymentPlan(null); savePlan(paymentPlan); }}
+            onCancel={() => setPaymentPlan(null)}
+          />
+        </AnimatePresence>
+      )}
+      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
+        {packages.map((plan) => {
+          const isActive = !preview && userPlan?.plan_name === plan.name;
+          return (
+            <Reveal key={plan.name} className={`price-card relative ${plan.highlight ? "featured" : ""} ${isActive ? "ring-2 ring-emerald-500 ring-offset-2" : ""}`}>
+              {/* Active plan tick */}
+              {isActive && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                  <Check size={12} /> Gói đang dùng
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <h3>{plan.name}</h3>
+                {plan.highlight && <span className="badge">Best vibe</span>}
               </div>
-            ))}
-            {!preview && plan.notIncluded?.map((feature) => (
-              <div key={feature} className="flex gap-3 text-sm text-stone-400 line-through">
-                <X size={16} className="shrink-0 text-stone-300 mt-0.5" /> {feature}
+              <div className="mt-4 text-2xl font-black text-[#1e4230]">{plan.price}</div>
+              <p className="mt-3 text-sm leading-6 text-[#3d2b1a]/62">{plan.note}</p>
+              <div className="mt-6 grid gap-2.5">
+                {(preview ? plan.features.slice(0, 3) : plan.features).map((feature) => (
+                  <div key={feature} className="flex gap-3 text-sm text-[#3d2b1a]/75">
+                    <Check size={16} className="shrink-0 text-emerald-600 mt-0.5" /> {feature}
+                  </div>
+                ))}
+                {!preview && plan.notIncluded?.map((feature) => (
+                  <div key={feature} className="flex gap-3 text-sm text-stone-400 line-through">
+                    <X size={16} className="shrink-0 text-stone-300 mt-0.5" /> {feature}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <button
-            onClick={() => handleSelectPlan(plan)}
-            disabled={selecting === plan.name}
-            className="btn btn-glass mt-7 w-full justify-center"
-          >
-            {selecting === plan.name
-              ? "Đang xử lý..."
-              : plan.price === "Miễn phí"
-              ? "Dùng miễn phí"
-              : plan.highlight
-              ? "Bắt đầu Premium"
-              : "Chọn gói này"}
-          </button>
-        </Reveal>
-      ))}
-    </div>
+              <button
+                onClick={() => handleSelectPlan(plan)}
+                disabled={selecting === plan.name || (isActive && plan.priceAmount === 0)}
+                className="btn btn-glass mt-7 w-full justify-center"
+              >
+                {selecting === plan.name
+                  ? "Đang xử lý..."
+                  : isActive
+                  ? "Đang sử dụng"
+                  : plan.priceAmount === 0
+                  ? "Dùng miễn phí"
+                  : plan.highlight
+                  ? "Bắt đầu Premium"
+                  : "Chọn gói này"}
+              </button>
+            </Reveal>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -2013,10 +2141,10 @@ function About() {
   );
 }
 
-function Pricing({ user, setUserPlan }) {
+function Pricing({ user, userPlan, setUserPlan }) {
   return (
     <PageShell eyebrow="Service Packages / Pricing" title="Gói dịch vụ rõ ràng cho từng kiểu khám phá.">
-      <PricingGrid user={user} setUserPlan={setUserPlan} />
+      <PricingGrid user={user} userPlan={userPlan} setUserPlan={setUserPlan} />
 
       {/* Guarantee banner */}
       <Reveal className="mt-12 rounded-2xl bg-[#2d5a3d]/5 border border-[#2d5a3d]/10 p-8 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
@@ -2523,7 +2651,8 @@ function hasPlan() {
   return !!localStorage.getItem("wh_selected_plan");
 }
 
-const FREE_MONTHLY_LIMIT = 2;
+const FREE_MONTHLY_LIMIT = 1;
+const FREE_PERIOD_DAYS = 20;
 
 function getFreeUsageData() {
   try {
@@ -3033,7 +3162,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
           </button>
           {isBasicPlan && !limitReached && (
             <p className="text-xs text-center text-stone-400 mt-2">
-              Gói <strong>Basic</strong>: còn <strong>{monthlyLimit - freeUsageCount}</strong>/{monthlyLimit} lượt tạo miễn phí tháng này
+              Gói <strong>Basic</strong>: còn <strong>{monthlyLimit - freeUsageCount}</strong>/{monthlyLimit} lượt — chu kỳ {FREE_PERIOD_DAYS} ngày
             </p>
           )}
           {!isBasicPlan && (
@@ -3043,8 +3172,16 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
           )}
           {limitReached && (
             <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm">
-              <p className="font-semibold text-amber-700">Đã dùng hết {monthlyLimit} lượt miễn phí tháng này.</p>
-              <p className="text-amber-600 mt-1">Nâng cấp Premium để tạo lịch trình không giới hạn.</p>
+              <p className="font-semibold text-amber-700">Đã dùng lượt miễn phí trong chu kỳ này.</p>
+              {userPlan?.period_reset_at && (
+                <p className="text-amber-600 mt-1">
+                  Reset sau{" "}
+                  <strong>
+                    {Math.max(1, Math.ceil((new Date(userPlan.period_reset_at) - Date.now()) / 86400000))} ngày
+                  </strong>
+                </p>
+              )}
+              <p className="text-amber-500 text-xs mt-1">Hoặc nâng cấp Premium để tạo không giới hạn.</p>
               <NavLink to="/pricing" className="btn btn-primary mt-3 w-full justify-center text-sm">
                 Xem gói Premium <ChevronRight size={14} />
               </NavLink>
@@ -3245,7 +3382,7 @@ function App() {
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Home user={user} />} />
           <Route path="/about" element={<About />} />
-          <Route path="/pricing" element={<Pricing user={user} setUserPlan={setUserPlan} />} />
+          <Route path="/pricing" element={<Pricing user={user} userPlan={userPlan} setUserPlan={setUserPlan} />} />
           <Route path="/explore" element={<Explore />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/faq" element={<FAQ />} />
