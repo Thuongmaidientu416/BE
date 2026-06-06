@@ -120,6 +120,30 @@ CREATE TABLE IF NOT EXISTS user_plans (
     UNIQUE(user_id)
 );
 
+-- WanderHUB vehicle fleet (motorbikes + 7-seat cars)
+CREATE TABLE IF NOT EXISTS vehicle_fleet (
+    id INTEGER PRIMARY KEY,
+    vehicle_type TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL,
+    total_count INTEGER NOT NULL,
+    available_count INTEGER NOT NULL CHECK(available_count >= 0),
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Individual vehicle bookings
+CREATE TABLE IF NOT EXISTS vehicle_bookings (
+    id INTEGER PRIMARY KEY,
+    vehicle_type TEXT NOT NULL,
+    user_id INTEGER REFERENCES users(id),
+    itinerary_id INTEGER REFERENCES itineraries(id),
+    driver_name TEXT NOT NULL,
+    driver_rating REAL NOT NULL,
+    plate_number TEXT NOT NULL,
+    eta_minutes INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Keep an audit trail of which recommendations were shown and why.
 CREATE TABLE IF NOT EXISTS recommendation_logs (
     id INTEGER PRIMARY KEY,
@@ -152,11 +176,23 @@ def _make_connection(db_path: Path | str) -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Apply schema extensions (idempotent — CREATE IF NOT EXISTS)."""
-    with _make_connection(DB_PATH) as conn:
+    """Apply schema extensions and seed initial data (idempotent)."""
+    conn = _make_connection(DB_PATH)
+    try:
         conn.executescript(SCHEMA_EXTENSIONS)
+        # Seed vehicle fleet once
+        if conn.execute("SELECT COUNT(*) AS cnt FROM vehicle_fleet").fetchone()["cnt"] == 0:
+            conn.executemany(
+                "INSERT INTO vehicle_fleet (vehicle_type, label, total_count, available_count) VALUES (?, ?, ?, ?)",
+                [
+                    ("motorbike", "Xe máy WanderHUB", 50, 50),
+                    ("car7",      "Xe 7 chỗ WanderHUB", 20, 20),
+                ],
+            )
         conn.commit()
-    print(f"[DB] Schema extensions applied to {DB_PATH}")
+    finally:
+        conn.close()
+    print(f"[DB] Schema + seed applied to {DB_PATH}")
 
 
 @contextmanager

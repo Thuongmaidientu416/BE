@@ -201,5 +201,39 @@ class PlanResponse(BaseModel):
     period_days: int = 20        # period length in days (basic = 20)
 
 
+# ── Vehicles ──────────────────────────────────────────────────────
+
+class VehicleAvailability(BaseModel):
+    vehicle_type: str
+    label: str
+    total_count: int
+    available_count: int
+
+
+class VehicleFleetResponse(BaseModel):
+    fleet: list[VehicleAvailability]
+    has_wanderhub: bool
+
+
+class VehicleBookRequest(BaseModel):
+    vehicle_type: str   # "motorbike" | "car7"
+    itinerary_id: Optional[int] = None
+
+
+class DriverInfo(BaseModel):
+    name: str
+    rating: float
+    plate: str
+    eta_minutes: int
+    vehicle_type: str
+    vehicle_label: str
+
+
+class VehicleBookResponse(BaseModel):
+    success: bool
+    driver: DriverInfo
+    remaining: VehicleFleetResponse
+
+
 # Fix forward reference
 AuthResponse.model_rebuild()
