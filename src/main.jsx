@@ -495,7 +495,7 @@ function LaptopMockup() {
         <Sparkles size={16} /> Mood: Deadline Escape
       </motion.div>
       <motion.div className="floating-card card-b" animate={{ y: [10, -12, 10] }} transition={{ duration: 6, repeat: Infinity }}>
-        <Car size={16} /> Be / Xanh SM ready
+        <Car size={16} /> Tour Guide sẵn sàng
       </motion.div>
       <motion.div className="floating-card card-c" animate={{ x: [-6, 8, -6] }} transition={{ duration: 5.4, repeat: Infinity }}>
         <Gem size={16} /> Hidden gem unlocked
@@ -2518,25 +2518,24 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) 
   const mapContainerRef = useRef(null);
   const leafletInstanceRef = useRef(null);
   const [activeIndex] = useState(0);
-  // "checking" | "available" | "unavailable" | "booking" | "booked"
-  const [vehicleStatus, setVehicleStatus] = useState("checking");
+  // "idle" | "loading" | "selecting" | "booking" | "booked" | "unavailable"
+  const [vehicleStatus, setVehicleStatus] = useState("idle");
   const [bookedDriver, setBookedDriver] = useState(null);
   const [vehicleFleet, setVehicleFleet] = useState([]);
 
-  const isRide = transport === "Be / Xanh SM";
+  const isRide = transport === "Thuê Tour Guide";
   const isWalk = transport === "Đi bộ thong thả";
 
-  // Fetch real WanderHUB vehicle availability (ride mode only)
-  useEffect(() => {
-    if (!isRide) return;
-    setVehicleStatus("checking");
-    apiGetVehicleAvailability()
-      .then((data) => {
-        setVehicleFleet(data.fleet ?? []);
-        setVehicleStatus(data.has_wanderhub ? "available" : "unavailable");
-      })
-      .catch(() => setVehicleStatus("unavailable"));
-  }, [isRide]);
+  const handleCheckVehicles = async () => {
+    setVehicleStatus("loading");
+    try {
+      const data = await apiGetVehicleAvailability();
+      setVehicleFleet(data.fleet ?? []);
+      setVehicleStatus(data.has_wanderhub ? "selecting" : "unavailable");
+    } catch {
+      setVehicleStatus("unavailable");
+    }
+  };
 
   const handleBookWanderHub = async (vehicleType) => {
     setVehicleStatus("booking");
@@ -2646,23 +2645,35 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) 
           })}
 
           <div className="journey-tracker-booking">
-            {/* ── Ride mode: WanderHUB xe trước, fallback Be/Xanh ── */}
-            {isRide && vehicleStatus === "checking" && (
+            {/* ── Thuê Tour Guide: hai bước — nhấn đặt xe → chọn loại → xác nhận ── */}
+            {isRide && vehicleStatus === "idle" && (
+              <div className="jt-vehicle-available">
+                <div className="jt-vehicle-header">
+                  <span className="jt-dot-green" /> Tour Guide & Xe WanderHUB
+                </div>
+                <p className="jt-vehicle-sub">Tài xế kiêm hướng dẫn viên — đặt ngay trong vài giây</p>
+                <button className="jt-book-btn" onClick={handleCheckVehicles}>
+                  <Car size={14} /> Đặt xe ngay
+                </button>
+              </div>
+            )}
+
+            {isRide && vehicleStatus === "loading" && (
               <div className="jt-vehicle-check">
                 <div className="jt-spinner" />
                 <span>Đang kiểm tra xe WanderHUB...</span>
               </div>
             )}
 
-            {isRide && vehicleStatus === "available" && (() => {
+            {isRide && vehicleStatus === "selecting" && (() => {
               const moto = vehicleFleet.find(v => v.vehicle_type === "motorbike");
               const car7 = vehicleFleet.find(v => v.vehicle_type === "car7");
               return (
                 <div className="jt-vehicle-available">
                   <div className="jt-vehicle-header">
-                    <span className="jt-dot-green" /> Xe WanderHUB sẵn sàng
+                    <span className="jt-dot-green" /> Chọn loại xe
                   </div>
-                  <p className="jt-vehicle-sub">Chọn loại xe phù hợp với nhóm của bạn</p>
+                  <p className="jt-vehicle-sub">Tài xế WanderHUB sẵn sàng đón bạn ngay</p>
                   {moto && (
                     <button
                       className="jt-book-btn"
@@ -2713,15 +2724,12 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) 
             {isRide && vehicleStatus === "unavailable" && (
               <div className="jt-vehicle-unavailable">
                 <div className="jt-vehicle-header">
-                  <span className="jt-dot-amber" /> Xe WanderHUB hiện hết chỗ
+                  <span className="jt-dot-amber" /> Xe WanderHUB hiện đã hết
                 </div>
-                <p className="jt-vehicle-sub">Kết nối đối tác vận chuyển:</p>
-                <a href="https://be.com.vn" target="_blank" rel="noopener noreferrer" className="journey-tracker-btn-be">
-                  <Car size={15} /> Mở Be
-                </a>
-                <a href="https://xanhsm.com" target="_blank" rel="noopener noreferrer" className="journey-tracker-btn-xanh">
-                  <Car size={15} /> Mở Xanh SM
-                </a>
+                <p className="jt-vehicle-sub">Vui lòng thử lại sau hoặc liên hệ hỗ trợ WanderHUB.</p>
+                <button className="jt-book-btn" style={{ background: "#78716c", marginTop: "8px" }} onClick={handleCheckVehicles}>
+                  <Car size={14} /> Thử lại
+                </button>
               </div>
             )}
 
@@ -2821,7 +2829,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
   const [timeSlot, setTimeSlot] = useState(timeOptions[2]);
   const [district, setDistrict] = useState(districtOptions[0]);
   const [interests, setInterests] = useState(["cafe_drink", "food", "checkin"]);
-  const [transport, setTransport] = useState("Be / Xanh SM");
+  const [transport, setTransport] = useState("Thuê Tour Guide");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState("");
   const [showResult, setShowResult] = useState(true);
@@ -3247,7 +3255,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
           <div className="planner-field">
             <div className="planner-field-head"><span>Phương tiện di chuyển</span></div>
             <div className="transport-row">
-              {["Be / Xanh SM", "Đi bộ thong thả", "Tự lái xe máy"].map((item) => (
+              {["Thuê Tour Guide", "Đi bộ thong thả", "Tự lái xe máy"].map((item) => (
                 <button key={item} type="button" className={`transport-chip ${transport === item ? "is-active" : ""}`} onClick={() => setTransport(item)}>
                   <Car size={16} /> {item}
                 </button>
@@ -3402,7 +3410,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
                     <small>
                       {selectedStops.length
                         ? selectedStops.map((item) => item.title).slice(0, 3).join(" · ")
-                        : transport === "Be / Xanh SM"
+                        : transport === "Thuê Tour Guide"
                         ? "Tick vào card để tiến hành đặt xe."
                         : "Tick vào card để xem hành trình trên bản đồ."}
                     </small>
@@ -3412,11 +3420,11 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
                     disabled={!selectedStops.length}
                     className="booking-next-btn"
                     onClick={() => {
-                      selectedStops.forEach((item, index) => trackStopInteraction(item, "save", { step: index + 1, next_stage: transport === "Be / Xanh SM" ? "ride_booking" : "map_view" }));
+                      selectedStops.forEach((item, index) => trackStopInteraction(item, "save", { step: index + 1, next_stage: transport === "Thuê Tour Guide" ? "ride_booking" : "map_view" }));
                       setShowRideBooking(true);
                     }}
                   >
-                    {transport === "Be / Xanh SM"
+                    {transport === "Thuê Tour Guide"
                       ? <><Car size={16} /> Tiếp tục đặt xe</>
                       : <><MapPin size={16} /> Xem bản đồ hành trình</>}
                   </button>
