@@ -147,6 +147,19 @@ export async function apiChat(message, history = [], groqKey = null) {
   });
 }
 
+// ── Plans ────────────────────────────────────────────────────────
+
+export async function apiSelectPlan(planName, planKey) {
+  return request('/api/plans/select', {
+    method: 'POST',
+    body: JSON.stringify({ plan_name: planName, plan_key: planKey }),
+  });
+}
+
+export async function apiGetMyPlan() {
+  return request('/api/plans/me');
+}
+
 // ── Contact ──────────────────────────────────────────────────────
 
 export async function apiSubmitContact(name, email, subject, message) {

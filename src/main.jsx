@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 import { processUserMessage } from "./ai-llm/index";
-import { apiLogin, apiRegister, apiGenerateItinerary, apiRerouteItinerary, apiSubmitContact, apiTrackInteraction, clearToken, setToken } from "./api";
+import { apiLogin, apiRegister, apiGenerateItinerary, apiRerouteItinerary, apiSubmitContact, apiTrackInteraction, apiSelectPlan, apiGetMyPlan, apiGetMe, clearToken, setToken } from "./api";
 
 const navItems = [
   ["Trang chủ", "/"],
@@ -301,7 +301,13 @@ function Logo() {
   );
 }
 
-function Navbar({ user, onLogout }) {
+const PLAN_BADGE_STYLES = {
+  basic: "bg-stone-100 text-stone-600 border border-stone-200",
+  premium: "bg-amber-50 text-amber-700 border border-amber-200",
+  international: "bg-sky-50 text-sky-700 border border-sky-200",
+};
+
+function Navbar({ user, userPlan, onLogout }) {
   const [open, setOpen] = useState(false);
   return (
     <header className="site-nav fixed left-4 right-4 top-4 z-50">
@@ -325,6 +331,11 @@ function Navbar({ user, onLogout }) {
           {user ? (
             <>
               <span className="text-sm font-semibold text-[#1e4230]">Chào, {user.name}!</span>
+              {userPlan && (
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${PLAN_BADGE_STYLES[userPlan.plan_key] || PLAN_BADGE_STYLES.basic}`}>
+                  {userPlan.plan_name}
+                </span>
+              )}
               <button onClick={onLogout} className="btn btn-ghost">
                 Đăng xuất
               </button>
@@ -1869,7 +1880,30 @@ function Home({ user }) {
   );
 }
 
-function PricingGrid({ preview = false, user = null }) {
+const PLAN_KEYS = { "Basic": "basic", "Premium": "premium", "International Tourist": "international" };
+
+function PricingGrid({ preview = false, user = null, setUserPlan = null }) {
+  const navigate = useNavigate();
+  const [selecting, setSelecting] = useState(null);
+
+  const handleSelectPlan = async (plan) => {
+    if (!user) { navigate("/auth"); return; }
+    const planKey = PLAN_KEYS[plan.name] || "basic";
+    setSelecting(plan.name);
+    try {
+      const planData = await apiSelectPlan(plan.name, planKey);
+      localStorage.setItem("wh_selected_plan", plan.name);
+      localStorage.setItem("wh_plan_info", JSON.stringify(planData));
+      if (setUserPlan) setUserPlan(planData);
+      navigate("/planner");
+    } catch {
+      localStorage.setItem("wh_selected_plan", plan.name);
+      navigate("/planner");
+    } finally {
+      setSelecting(null);
+    }
+  };
+
   return (
     <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
       {packages.map((plan) => (
@@ -1892,13 +1926,19 @@ function PricingGrid({ preview = false, user = null }) {
               </div>
             ))}
           </div>
-          <NavLink
-            to={user ? "/planner" : "/auth"}
-            onClick={() => user && localStorage.setItem("wh_selected_plan", plan.name)}
+          <button
+            onClick={() => handleSelectPlan(plan)}
+            disabled={selecting === plan.name}
             className="btn btn-glass mt-7 w-full justify-center"
           >
-            {plan.price === "Miễn phí" ? "Dùng miễn phí" : plan.highlight ? "Bắt đầu Premium" : "Chọn gói này"}
-          </NavLink>
+            {selecting === plan.name
+              ? "Đang xử lý..."
+              : plan.price === "Miễn phí"
+              ? "Dùng miễn phí"
+              : plan.highlight
+              ? "Bắt đầu Premium"
+              : "Chọn gói này"}
+          </button>
         </Reveal>
       ))}
     </div>
@@ -1973,10 +2013,10 @@ function About() {
   );
 }
 
-function Pricing({ user }) {
+function Pricing({ user, setUserPlan }) {
   return (
     <PageShell eyebrow="Service Packages / Pricing" title="Gói dịch vụ rõ ràng cho từng kiểu khám phá.">
-      <PricingGrid user={user} />
+      <PricingGrid user={user} setUserPlan={setUserPlan} />
 
       {/* Guarantee banner */}
       <Reveal className="mt-12 rounded-2xl bg-[#2d5a3d]/5 border border-[#2d5a3d]/10 p-8 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
@@ -2498,7 +2538,7 @@ function getFreeUsageData() {
   }
 }
 
-function PlannerV2() {
+function PlannerV2({ userPlan = null, setUserPlan = null }) {
   const moodOptions = [
     { code: "chill", label: "Chill", hint: "Cafe, dạo phố, nhịp nhẹ", icon: Coffee },
     { code: "date", label: "Hẹn hò", hint: "Đẹp, riêng tư, ven sông", icon: Sparkles },
@@ -2564,8 +2604,14 @@ function PlannerV2() {
   const [showRideBooking, setShowRideBooking] = useState(false);
   const trackedHoverRef = useRef(new Set());
   const didAutoGenerateRef = useRef(false);
-  const [freeUsageCount, setFreeUsageCount] = useState(() => getFreeUsageData().count);
-  const limitReached = freeUsageCount >= FREE_MONTHLY_LIMIT;
+  // Prefer server-side usage count when user is logged in (userPlan), fallback to localStorage
+  const [freeUsageCount, setFreeUsageCount] = useState(() => {
+    if (userPlan?.usage_this_month !== undefined) return userPlan.usage_this_month;
+    return getFreeUsageData().count;
+  });
+  const isBasicPlan = !userPlan || userPlan.plan_key === "basic";
+  const monthlyLimit = userPlan?.monthly_limit ?? FREE_MONTHLY_LIMIT;
+  const limitReached = isBasicPlan && freeUsageCount >= monthlyLimit;
   const [routeCost, setRouteCost] = useState("552.500 VNĐ");
   const [routeDuration, setRouteDuration] = useState("4h 45m");
   const [routeStops, setRouteStops] = useState([
@@ -2774,6 +2820,7 @@ function PlannerV2() {
         district: district.backend,
         food_preference: selectedInterests,
         transport,
+        is_auto_generate: isAutoGenerate,
         max_stops: timeSlot.label === "Nửa ngày" ? 8 : 6,
       });
 
@@ -2803,6 +2850,12 @@ function PlannerV2() {
         const newCount = usage.count + 1;
         localStorage.setItem("wh_free_usage", JSON.stringify({ count: newCount, month: usage.month }));
         setFreeUsageCount(newCount);
+        // Sync usage count from server for accuracy
+        apiGetMyPlan().then((plan) => {
+          setFreeUsageCount(plan.usage_this_month);
+          if (setUserPlan) setUserPlan(plan);
+          localStorage.setItem("wh_plan_info", JSON.stringify(plan));
+        }).catch(() => {});
       }
     } catch (err) {
       clearInterval(stepInterval);
@@ -2978,14 +3031,19 @@ function PlannerV2() {
           <button id="planner-btn-submit" onClick={() => handleGenerate(false)} disabled={isGenerating || limitReached} className="btn btn-primary w-full justify-center mt-2">
             {isGenerating ? "Đang xử lý..." : "Lên lịch trình AI"} <Sparkles size={18} />
           </button>
-          {!limitReached && (
+          {isBasicPlan && !limitReached && (
             <p className="text-xs text-center text-stone-400 mt-2">
-              Gói Basic: còn <strong>{FREE_MONTHLY_LIMIT - freeUsageCount}</strong> lần tạo miễn phí tháng này
+              Gói <strong>Basic</strong>: còn <strong>{monthlyLimit - freeUsageCount}</strong>/{monthlyLimit} lượt tạo miễn phí tháng này
+            </p>
+          )}
+          {!isBasicPlan && (
+            <p className="text-xs text-center text-stone-400 mt-2">
+              Gói <strong>{userPlan?.plan_name}</strong>: tạo lịch trình không giới hạn
             </p>
           )}
           {limitReached && (
             <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm">
-              <p className="font-semibold text-amber-700">Đã dùng hết {FREE_MONTHLY_LIMIT} lượt miễn phí tháng này.</p>
+              <p className="font-semibold text-amber-700">Đã dùng hết {monthlyLimit} lượt miễn phí tháng này.</p>
               <p className="text-amber-600 mt-1">Nâng cấp Premium để tạo lịch trình không giới hạn.</p>
               <NavLink to="/pricing" className="btn btn-primary mt-3 w-full justify-center text-sm">
                 Xem gói Premium <ChevronRight size={14} />
@@ -3144,26 +3202,56 @@ function PlannerV2() {
 function App() {
   const location = useLocation();
   const [user, setUser] = useState(null);
+  const [userPlan, setUserPlan] = useState(null);
+
+  // Restore session on mount
+  useEffect(() => {
+    const token = localStorage.getItem("wanderhub_token");
+    if (!token) return;
+    apiGetMe()
+      .then((profile) => setUser(profile))
+      .catch(() => clearToken());
+  }, []);
+
+  // Sync plan from server whenever user logs in / out
+  useEffect(() => {
+    if (!user) {
+      setUserPlan(null);
+      return;
+    }
+    apiGetMyPlan()
+      .then((plan) => {
+        setUserPlan(plan);
+        localStorage.setItem("wh_selected_plan", plan.plan_name);
+        localStorage.setItem("wh_plan_info", JSON.stringify(plan));
+      })
+      .catch(() => {
+        // User has no plan on server yet — keep whatever is in localStorage
+      });
+  }, [user]);
 
   const handleLogout = () => {
     setUser(null);
+    setUserPlan(null);
+    localStorage.removeItem("wh_selected_plan");
+    localStorage.removeItem("wh_plan_info");
     clearToken();
   };
 
   return (
     <>
-      <Navbar user={user} onLogout={handleLogout} />
+      <Navbar user={user} userPlan={userPlan} onLogout={handleLogout} />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Home user={user} />} />
           <Route path="/about" element={<About />} />
-          <Route path="/pricing" element={<Pricing user={user} />} />
+          <Route path="/pricing" element={<Pricing user={user} setUserPlan={setUserPlan} />} />
           <Route path="/explore" element={<Explore />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/faq" element={<FAQ />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/auth" element={<Auth setUser={setUser} />} />
-          <Route path="/planner" element={<PlannerV2 />} />
+          <Route path="/planner" element={<PlannerV2 userPlan={userPlan} setUserPlan={setUserPlan} />} />
         </Routes>
       </AnimatePresence>
       <Footer user={user} />
