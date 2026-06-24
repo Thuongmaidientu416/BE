@@ -3040,47 +3040,45 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
   const [bookedVehicleType, setBookedVehicleType] = useState(null);
   const [bookedPrice, setBookedPrice] = useState(0);
   const [vehicleFleet, setVehicleFleet] = useState([]);
+  const [bookingError, setBookingError] = useState("");
+  const [showToast, setShowToast] = useState(false);
 
   const isRide = transport === "Thuê xe";
   const isWalk = transport === "Đi bộ thong thả";
 
   const handleCheckVehicles = async () => {
+    setBookingError("");
     setVehicleStatus("loading");
     try {
       const data = await apiGetVehicleAvailability();
       setVehicleFleet(data.fleet ?? []);
       setVehicleStatus(data.has_wanderhub ? "selecting" : "unavailable");
     } catch {
+      setBookingError("Không kết nối được với hệ thống. Vui lòng thử lại.");
       setVehicleStatus("unavailable");
     }
   };
 
   const handleBookWanderHub = async (vehicleType) => {
     setVehicleStatus("booking");
+    setBookingError("");
     try {
       const totalDistance = rideLegs.reduce((sum, leg) => sum + leg.distanceFromPrevious, 0);
       const price = calculateVehiclePrice(vehicleType, totalDistance);
-      console.log("[Vehicle Booking]", { vehicleType, rideLegsCount: rideLegs.length, totalDistance, price });
-
       const result = await apiBookVehicle(vehicleType, itineraryId ?? null);
       setBookedDriver(result.driver);
       setBookedVehicleType(vehicleType);
       setBookedPrice(price);
       setVehicleFleet(result.remaining.fleet ?? []);
       setVehicleStatus("booked");
-    } catch {
-      setVehicleStatus("unavailable");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 4000);
+    } catch (err) {
+      setBookingError(err.message || "Đặt xe thất bại. Vui lòng thử lại.");
+      setVehicleStatus("selecting");
     }
   };
 
-  useEffect(() => {
-    if (vehicleStatus === "booked") {
-      const timer = setTimeout(() => {
-        // Success toast sẽ hiển thị 3 giây rồi tự tắt
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [vehicleStatus]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -3143,32 +3141,33 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
 
   return (
     <>
-      {vehicleStatus === "booked" && (
+      {showToast && (
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: -30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
           style={{
             position: "fixed",
-            top: "20px",
+            top: "24px",
             left: "50%",
             transform: "translateX(-50%)",
             backgroundColor: "#1e4230",
             color: "white",
-            padding: "16px 24px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 20px rgba(30, 66, 48, 0.3)",
-            zIndex: 1000,
+            padding: "14px 28px",
+            borderRadius: "14px",
+            boxShadow: "0 8px 32px rgba(30, 66, 48, 0.35)",
+            zIndex: 2000,
             display: "flex",
             alignItems: "center",
             gap: "10px",
-            fontSize: "14px",
-            fontWeight: "bold"
+            fontSize: "15px",
+            fontWeight: "bold",
+            whiteSpace: "nowrap"
           }}
         >
           <Check size={20} />
-          ✅ Lịch trình đã được lên thành công!
+          🎉 Lịch trình đã được lên thành công!
         </motion.div>
       )}
 
@@ -3215,15 +3214,24 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
                   <span className="jt-dot-green" /> Xe WanderHUB
                 </div>
                 <p className="jt-vehicle-sub">Đặt xe ngay trong vài giây</p>
+                <label style={{ fontSize: "11px", fontWeight: "600", color: "#666", display: "block", marginBottom: "4px" }}>
+                  Điểm đón <span style={{ color: "#e53e3e" }}>*</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="Địa điểm đón khách (vd: Quốc lộ 1A, Bình Thạnh)"
+                  placeholder="Vd: 123 Nguyễn Huệ, Quận 1"
                   value={pickupLocation}
                   onChange={(e) => setPickupLocation(e.target.value)}
-                  className="border border-stone-200 rounded-lg p-2 mb-3 w-full text-sm bg-stone-50/50"
+                  style={{ borderColor: pickupLocation.trim() === "" ? "#e2e8f0" : "#2d5a3d" }}
+                  className="border rounded-lg p-2 mb-3 w-full text-sm bg-stone-50/50 transition-colors"
                 />
-                <button className="jt-book-btn" onClick={handleCheckVehicles} disabled={vehicleStatus === "loading" || !pickupLocation.trim()}>
-                  <Car size={14} /> {vehicleStatus === "loading" ? "Đang kiểm tra..." : "Đặt xe ngay"}
+                <button
+                  className="jt-book-btn"
+                  onClick={handleCheckVehicles}
+                  disabled={!pickupLocation.trim()}
+                  style={{ opacity: !pickupLocation.trim() ? 0.5 : 1, cursor: !pickupLocation.trim() ? "not-allowed" : "pointer" }}
+                >
+                  <Car size={14} /> Kiểm tra xe khả dụng
                 </button>
               </div>
             )}
@@ -3241,34 +3249,42 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
               const totalDistance = rideLegs.reduce((sum, leg) => sum + leg.distanceFromPrevious, 0);
               const motoPrice = calculateVehiclePrice("motorbike", totalDistance);
               const car7Price = calculateVehiclePrice("car7", totalDistance);
-              console.log("[JourneyTracker] Selecting state:", { rideLegs: rideLegs.length, totalDistance, motoPrice, car7Price });
               return (
                 <div className="jt-vehicle-available">
                   <div className="jt-vehicle-header">
                     <span className="jt-dot-green" /> Chọn loại xe
                   </div>
-                  <p className="jt-vehicle-sub">
-                    <MapPin size={13} style={{ display: "inline", marginRight: "4px" }} />
-                    {pickupLocation}
+                  <p className="jt-vehicle-sub" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <MapPin size={13} /> {pickupLocation}
                   </p>
-                  <p className="jt-vehicle-sub" style={{ marginTop: "4px" }}>Tài xế WanderHUB sẵn sàng đón bạn ngay ({totalDistance.toFixed(1)}km)</p>
+                  <p className="jt-vehicle-sub" style={{ marginTop: "4px", color: "#2d5a3d", fontWeight: "600" }}>
+                    ✅ {totalDistance.toFixed(1)}km — Tài xế sẵn sàng
+                  </p>
+                  {bookingError && (
+                    <p style={{ color: "#e53e3e", fontSize: "12px", marginTop: "8px", backgroundColor: "#fff5f5", padding: "8px", borderRadius: "6px", border: "1px solid #fed7d7" }}>
+                      ⚠️ {bookingError}
+                    </p>
+                  )}
                   {moto && (
                     <button
                       className="jt-book-btn"
+                      style={{ marginTop: "8px", opacity: moto.available_count === 0 ? 0.5 : 1 }}
                       onClick={() => handleBookWanderHub("motorbike")}
-                      disabled={moto.available_count === 0 || vehicleStatus === "booking"}
+                      disabled={moto.available_count === 0}
                     >
-                      <Car size={14} /> Xe máy — {motoPrice.toLocaleString("vi-VN")} VNĐ
+                      <Car size={14} />
+                      {moto.available_count === 0 ? "Xe máy — Hết xe" : `Xe máy — ${motoPrice.toLocaleString("vi-VN")} VNĐ`}
                     </button>
                   )}
                   {car7 && (
                     <button
                       className="jt-book-btn"
-                      style={{ marginTop: "8px" }}
+                      style={{ marginTop: "8px", opacity: car7.available_count === 0 ? 0.5 : 1 }}
                       onClick={() => handleBookWanderHub("car7")}
-                      disabled={car7.available_count === 0 || vehicleStatus === "booking"}
+                      disabled={car7.available_count === 0}
                     >
-                      <Car size={14} /> Xe 7 chỗ — {car7Price.toLocaleString("vi-VN")} VNĐ
+                      <Car size={14} />
+                      {car7.available_count === 0 ? "Xe 7 chỗ — Hết xe" : `Xe 7 chỗ — ${car7Price.toLocaleString("vi-VN")} VNĐ`}
                     </button>
                   )}
                 </div>
@@ -3306,10 +3322,7 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
                 </div>
                 {itineraryId && (
                   <button
-                    onClick={() => {
-                      console.log("[QR Button] Clicked, itineraryId:", itineraryId);
-                      setShowQrCode(true);
-                    }}
+                    onClick={() => setShowQrCode(true)}
                     style={{ marginTop: "12px", width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#1e4230", color: "white", border: "none", fontWeight: "bold", cursor: "pointer", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
                   >
                     <Clipboard size={16} />
@@ -3322,11 +3335,18 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
             {isRide && vehicleStatus === "unavailable" && (
               <div className="jt-vehicle-unavailable">
                 <div className="jt-vehicle-header">
-                  <span className="jt-dot-amber" /> Xe WanderHUB hiện đã hết
+                  <span className="jt-dot-amber" /> Không có xe khả dụng
                 </div>
-                <p className="jt-vehicle-sub">Vui lòng thử lại sau hoặc liên hệ hỗ trợ WanderHUB.</p>
-                <button className="jt-book-btn" style={{ background: "#78716c", marginTop: "8px" }} onClick={handleCheckVehicles} disabled={vehicleStatus === "loading"}>
-                  <Car size={14} /> {vehicleStatus === "loading" ? "Đang kiểm tra..." : "Thử lại"}
+                {bookingError
+                  ? <p className="jt-vehicle-sub" style={{ color: "#e53e3e" }}>⚠️ {bookingError}</p>
+                  : <p className="jt-vehicle-sub">Toàn bộ xe WanderHUB hiện đang bận. Vui lòng thử lại sau.</p>
+                }
+                <button
+                  className="jt-book-btn"
+                  style={{ background: "#78716c", marginTop: "8px" }}
+                  onClick={() => { setVehicleStatus("idle"); setBookingError(""); }}
+                >
+                  <Car size={14} /> Quay lại
                 </button>
               </div>
             )}
@@ -3588,7 +3608,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
         },
       });
     } catch (err) {
-      console.warn("[Planner] Interaction tracking skipped:", err.message);
+      // interaction tracking silently skipped
     }
   };
 
@@ -3673,7 +3693,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
           district: district.backend,
           result_count: result.stops?.length || 0,
         },
-      }).catch((err) => console.warn("[Planner] View tracking skipped:", err.message));
+      }).catch(() => {});
       setIsGenerating(false);
       setShowResult(true);
       if (!isAutoGenerate) {
@@ -3690,7 +3710,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
       }
     } catch (err) {
       clearInterval(stepInterval);
-      console.warn("[Planner] Backend unavailable, using fallback:", err.message);
+      // backend unavailable, using fallback data
       setCommercialSuggestions([
         {
           title: "Hidden gem mới: Workshop cuối tuần",
@@ -4416,9 +4436,9 @@ function App() {
       try {
         const profile = await apiGetMe();
         setUser(profile);
-        console.log("[Session] User restored:", profile.email);
+        // session restored
       } catch (err) {
-        console.log("[Session] Token invalid or expired, clearing...");
+        // token expired, clearing
         clearToken();
       } finally {
         setIsRestoringSession(false);
