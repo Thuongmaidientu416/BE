@@ -4119,49 +4119,6 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
                       setShowQrCode={setShowQrCode}
                     />
 
-                    {/* Itinerary Details - Chi tiết lịch trình sau khi đặt xe */}
-                    <div style={{ marginTop: "32px", position: "relative" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                        <h3 style={{ fontSize: "20px", fontWeight: "bold", color: "#1e4230" }}>Chi tiết lịch trình</h3>
-                        {aiResponse?.itinerary_id && (
-                          <button
-                            onClick={() => setShowQrCode(true)}
-                            style={{ padding: "8px 16px", backgroundColor: "#1e4230", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "6px" }}
-                          >
-                            <Clipboard size={14} /> QR
-                          </button>
-                        )}
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
-                        {routeStops.map((item, index) => (
-                          <div key={`detail-${item.provider_id || item.title}-${index}`} style={{ backgroundColor: "white", borderRadius: "12px", border: "1px solid #e5e5e5", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
-                            <img
-                              src={item.image_url || fallbackImageForStop(item)}
-                              alt={item.title}
-                              style={{ width: "100%", height: "180px", objectFit: "cover" }}
-                              onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                e.currentTarget.src = fallbackImageForStop(item);
-                              }}
-                            />
-                            <div style={{ padding: "16px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "8px" }}>
-                                <div>
-                                  <h4 style={{ fontSize: "16px", fontWeight: "bold", color: "#1e4230", margin: "0 0 4px 0" }}>{item.title}</h4>
-                                  <small style={{ color: "#888", fontSize: "12px" }}>{item.category || "Hidden gem"}</small>
-                                </div>
-                                <span style={{ backgroundColor: "#1e4230", color: "white", padding: "4px 8px", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", whiteSpace: "nowrap", marginLeft: "8px" }}>{item.score || 90}/100</span>
-                              </div>
-                              <p style={{ fontSize: "13px", color: "#666", margin: "8px 0", lineHeight: "1.4" }}>{item.desc}</p>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f0f0f0", paddingTop: "12px", marginTop: "12px" }}>
-                                <span style={{ fontSize: "12px", color: "#888" }}>{item.time}</span>
-                                <span style={{ fontSize: "14px", fontWeight: "bold", color: "#c96420" }}>{Number(item.avg_price_vnd || item.cost_estimated || 0).toLocaleString("vi-VN")} VNĐ</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </>
                 ) : null}
               </div>
