@@ -3267,7 +3267,10 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
                 </div>
                 {itineraryId && (
                   <button
-                    onClick={() => setShowQrCode(true)}
+                    onClick={() => {
+                      console.log("[QR Button] Clicked, itineraryId:", itineraryId);
+                      setShowQrCode(true);
+                    }}
                     style={{ marginTop: "12px", width: "100%", padding: "10px", borderRadius: "8px", backgroundColor: "#1e4230", color: "white", border: "none", fontWeight: "bold", cursor: "pointer", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
                   >
                     <Clipboard size={16} />
