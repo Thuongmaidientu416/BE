@@ -3384,6 +3384,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
   const [selectedProviderIds, setSelectedProviderIds] = useState(() => new Set());
   const [commercialSuggestions, setCommercialSuggestions] = useState([]);
   const [showRideBooking, setShowRideBooking] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
   const [userNote, setUserNote] = useState("");
   const trackedHoverRef = useRef(new Set());
   const didAutoGenerateRef = useRef(false);
@@ -3871,10 +3872,21 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
                 </div>
                 <button id="planner-btn-reroute" onClick={reroute} className="icon-btn" aria-label="Re-route"><RefreshCcw size={18} /></button>
               </div>
-              <div className="route-summary flex gap-2">
-                <span className="flex items-center gap-1"><Wallet size={16} /> {routeCost}</span>
-                <span className="flex items-center gap-1"><Clock3 size={16} /> {routeDuration}</span>
-                <span className="flex items-center gap-1"><Car size={16} /> {transport}</span>
+              <div className="route-summary flex gap-2 items-center justify-between">
+                <div className="flex gap-2">
+                  <span className="flex items-center gap-1"><Wallet size={16} /> {routeCost}</span>
+                  <span className="flex items-center gap-1"><Clock3 size={16} /> {routeDuration}</span>
+                  <span className="flex items-center gap-1"><Car size={16} /> {transport}</span>
+                </div>
+                {aiResponse?.itinerary_id && (
+                  <button
+                    onClick={() => setShowQrCode(true)}
+                    className="icon-btn"
+                    title="Xuất QR code lịch trình"
+                  >
+                    <QRCodeSVG size={18} />
+                  </button>
+                )}
               </div>
               <div className="itinerary-card-grid">
                 {routeStops.map((item, index) => (
@@ -4116,6 +4128,110 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
           )}
         </Reveal>
       </div>
+
+      {/* QR Code Export Modal */}
+      {showQrCode && aiResponse?.itinerary_id && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 999,
+          padding: "20px"
+        }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            style={{
+              backgroundColor: "white",
+              borderRadius: "20px",
+              padding: "32px",
+              maxWidth: "400px",
+              width: "100%",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
+            }}
+          >
+            <h2 style={{ fontSize: "24px", fontWeight: "bold", color: "#1e4230", marginBottom: "20px", textAlign: "center" }}>
+              🎫 Xuất lịch trình
+            </h2>
+
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
+              <div id={`qr-${aiResponse.itinerary_id}`} style={{ backgroundColor: "white", padding: "12px", borderRadius: "12px" }}>
+                <QRCodeSVG
+                  value={`${window.location.origin}?itinerary=${aiResponse.itinerary_id}`}
+                  size={280}
+                  level="H"
+                  includeMargin={true}
+                />
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: "#f5f5f5", borderRadius: "12px", padding: "16px", marginBottom: "20px", textAlign: "center" }}>
+              <p style={{ fontSize: "13px", color: "#666", marginBottom: "8px" }}>Mã lịch trình</p>
+              <p style={{ fontSize: "16px", fontWeight: "bold", color: "#1e4230", fontFamily: "monospace", letterSpacing: "1px" }}>
+                {aiResponse.itinerary_id}
+              </p>
+            </div>
+
+            <p style={{ fontSize: "12px", color: "#666", marginBottom: "20px", textAlign: "center", lineHeight: "1.5" }}>
+              Bạn bè có thể quét QR code để xem lịch trình của bạn
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <button
+                onClick={() => setShowQrCode(false)}
+                style={{
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: "1px solid #ddd",
+                  backgroundColor: "white",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  color: "#666"
+                }}
+              >
+                Đóng
+              </button>
+              <button
+                onClick={() => {
+                  const qrRef = document.getElementById(`qr-${aiResponse.itinerary_id}`);
+                  if (qrRef) {
+                    const svg = qrRef.querySelector("svg");
+                    const svgString = new XMLSerializer().serializeToString(svg);
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    const img = new Image();
+                    img.onload = () => {
+                      canvas.width = img.width;
+                      canvas.height = img.height;
+                      ctx.drawImage(img, 0, 0);
+                      const link = document.createElement("a");
+                      link.href = canvas.toDataURL("image/png");
+                      link.download = `itinerary-${aiResponse.itinerary_id}.png`;
+                      link.click();
+                    };
+                    img.src = "data:image/svg+xml;base64," + btoa(svgString);
+                  }
+                }}
+                style={{
+                  padding: "12px",
+                  borderRadius: "10px",
+                  backgroundColor: "#1e4230",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Tải xuống
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </PageShell>
   );
 }
