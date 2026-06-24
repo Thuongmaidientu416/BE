@@ -166,6 +166,10 @@ export async function apiGetVehicleAvailability() {
   return request('/api/vehicles/availability');
 }
 
+export async function apiGetVehicleImage(vehicleType) {
+  return request(`/api/vehicles/images/${vehicleType}`);
+}
+
 export async function apiBookVehicle(vehicleType, itineraryId = null) {
   return request('/api/vehicles/book', {
     method: 'POST',

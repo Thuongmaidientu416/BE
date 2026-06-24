@@ -50,7 +50,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 import { processUserMessage } from "./ai-llm/index";
-import { apiLogin, apiRegister, apiGenerateItinerary, apiRerouteItinerary, apiSubmitContact, apiTrackInteraction, apiSelectPlan, apiGetMyPlan, apiGetMe, apiGetVehicleAvailability, apiBookVehicle, clearToken, setToken } from "./api";
+import { apiLogin, apiRegister, apiGenerateItinerary, apiRerouteItinerary, apiSubmitContact, apiTrackInteraction, apiSelectPlan, apiGetMyPlan, apiGetMe, apiGetVehicleAvailability, apiGetVehicleImage, apiBookVehicle, clearToken, setToken } from "./api";
 
 const navItems = [
   ["Trang chủ", "/"],
@@ -3406,6 +3406,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
   const [showRentalConfirm, setShowRentalConfirm] = useState(false);
   const [rentalBookingId, setRentalBookingId] = useState(null);
   const [rentalBookingStatus, setRentalBookingStatus] = useState("idle"); // idle | confirming | success | error
+  const [vehicleImage, setVehicleImage] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState("");
   const [showResult, setShowResult] = useState(true);
@@ -3601,7 +3602,11 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
   const handleConfirmRentalBooking = async () => {
     setRentalBookingStatus("confirming");
     try {
-      // Simulate booking to backend - later integrate with actual API
+      // Fetch vehicle image from backend
+      const imgData = await apiGetVehicleImage(rentalVehicle);
+      setVehicleImage(imgData);
+
+      // Simulate booking to backend
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       const bookingId = `RNT-${Date.now()}`;
@@ -3613,7 +3618,8 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
         unit: rentalUnit,
         pickup: rentalPickup,
         price: calculateRentalPrice(rentalVehicle, rentalDuration, rentalUnit),
-        bookingId
+        bookingId,
+        vehicleImage: imgData
       });
     } catch (err) {
       setRentalBookingStatus("error");
@@ -4343,6 +4349,37 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
                     Mã booking của bạn
                   </p>
                 </div>
+
+                {vehicleImage && (
+                  <div style={{ marginBottom: "20px" }}>
+                    <img
+                      src={vehicleImage.image_url}
+                      alt={vehicleImage.vehicle_type}
+                      style={{
+                        width: "100%",
+                        height: "250px",
+                        objectFit: "cover",
+                        borderRadius: "12px",
+                        marginBottom: "12px",
+                        border: "2px solid #1e4230"
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                    <div style={{ backgroundColor: "#f5f5f5", borderRadius: "12px", padding: "12px" }}>
+                      <p style={{ fontSize: "12px", color: "#666", marginBottom: "6px" }}>
+                        <strong>{vehicleImage.description}</strong>
+                      </p>
+                      <p style={{ fontSize: "11px", color: "#888", marginBottom: "4px" }}>
+                        📋 {vehicleImage.features}
+                      </p>
+                      <p style={{ fontSize: "11px", color: "#888" }}>
+                        👥 Sức chứa: {vehicleImage.capacity}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div style={{
                   backgroundColor: "#f5f5f5",
