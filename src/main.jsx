@@ -3008,21 +3008,6 @@ const VEHICLE_PRICING = {
   },
 };
 
-// ── WanderHUB Vehicle Rental Pricing ──
-const RENTAL_PRICING = {
-  motorbike: {
-    hourly: 50000,      // VNĐ/giờ
-    daily: 300000,      // VNĐ/ngày (24h)
-    monthly: 6000000,   // VNĐ/tháng
-    name: "Xe máy WanderHUB",
-  },
-  car7: {
-    hourly: 100000,     // VNĐ/giờ
-    daily: 600000,      // VNĐ/ngày (24h)
-    monthly: 10000000,  // VNĐ/tháng
-    name: "Xe 7 chỗ WanderHUB",
-  },
-};
 
 const calculateDistance = (from, to) => {
   if (!from?.latitude || !from?.longitude || !to?.latitude || !to?.longitude) return 0;
@@ -3042,32 +3027,7 @@ const calculateVehiclePrice = (vehicleType, distanceKm) => {
   return Math.round(pricing.basePrice + pricing.pricePerKm * distanceKm);
 };
 
-const calculateRentalPrice = (vehicleType, duration, unit) => {
-  const pricing = RENTAL_PRICING[vehicleType];
-  if (!pricing) return 0;
-  if (unit === "hourly") return pricing.hourly * duration;
-  if (unit === "daily") return pricing.daily * duration;
-  if (unit === "monthly") return pricing.monthly * duration;
-  return 0;
-};
 
-// ── Fallback Vehicle Images (khi API không available) ──
-const VEHICLE_IMAGES_FALLBACK = {
-  motorbike: {
-    vehicle_type: "motorbike",
-    image_url: "https://images.unsplash.com/photo-1593618998160-e34014e67546?w=600&h=400&fit=crop",
-    description: "Xe máy WanderHUB - Di động, nhanh gọn, phù hợp cho 1-2 người",
-    features: "Bình xăng lớn, phanh ABS, đèn LED, bảo hiểm đầy đủ",
-    capacity: "1-2 người"
-  },
-  car7: {
-    vehicle_type: "car7",
-    image_url: "https://images.unsplash.com/photo-1464207687429-7505649dae38?w=600&h=400&fit=crop",
-    description: "Xe 7 chỗ WanderHUB - Rộng rãi, thoải mái, tuyệt vời cho nhóm",
-    features: "Điều hòa 2 vùng, ghế gập linh hoạt, cửa trượt tự động, WiFi 4G",
-    capacity: "5-7 người"
-  }
-};
 
 function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) {
   const mapContainerRef = useRef(null);
@@ -3417,14 +3377,6 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
   const [district, setDistrict] = useState(districtOptions[0]);
   const [interests, setInterests] = useState(["cafe_drink", "food", "checkin"]);
   const [transport, setTransport] = useState("Thuê Tour Guide");
-  const [rentalVehicle, setRentalVehicle] = useState("motorbike");
-  const [rentalDuration, setRentalDuration] = useState(1);
-  const [rentalUnit, setRentalUnit] = useState("daily");
-  const [rentalPickup, setRentalPickup] = useState("");
-  const [showRentalConfirm, setShowRentalConfirm] = useState(false);
-  const [rentalBookingId, setRentalBookingId] = useState(null);
-  const [rentalBookingStatus, setRentalBookingStatus] = useState("idle"); // idle | confirming | success | error
-  const [vehicleImage, setVehicleImage] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState("");
   const [showResult, setShowResult] = useState(true);
@@ -3617,39 +3569,6 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
   }, [rideStops]);
   const totalRideMinutes = rideLegs.reduce((sum, stop) => sum + stop.travelFromPrevious, 0);
 
-  const handleConfirmRentalBooking = async () => {
-    setRentalBookingStatus("confirming");
-    try {
-      // Fetch vehicle image from backend, fallback to local data if API unavailable
-      let imgData = VEHICLE_IMAGES_FALLBACK[rentalVehicle];
-      try {
-        const apiData = await apiGetVehicleImage(rentalVehicle);
-        imgData = apiData;
-      } catch (apiErr) {
-        console.log("[Rental Booking] Using fallback vehicle image");
-      }
-      setVehicleImage(imgData);
-
-      // Simulate booking to backend
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const bookingId = `RNT-${Date.now()}`;
-      setRentalBookingId(bookingId);
-      setRentalBookingStatus("success");
-      console.log("[Rental Booking] Success:", {
-        vehicle: rentalVehicle,
-        duration: rentalDuration,
-        unit: rentalUnit,
-        pickup: rentalPickup,
-        price: calculateRentalPrice(rentalVehicle, rentalDuration, rentalUnit),
-        bookingId,
-        vehicleImage: imgData
-      });
-    } catch (err) {
-      setRentalBookingStatus("error");
-      console.error("[Rental Booking] Error:", err);
-    }
-  };
 
   const handleGenerate = async (isAutoGenerate = false) => {
     if (!isAutoGenerate && limitReached) return;
@@ -3873,7 +3792,7 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
           <div className="planner-field">
             <div className="planner-field-head"><span>Phương tiện di chuyển</span></div>
             <div className="transport-row">
-              {["Thuê Tour Guide", "Đi bộ thong thả", "Tự lái xe máy", "Thuê xe"].map((item) => (
+              {["Thuê Tour Guide", "Đi bộ thong thả", "Tự lái xe máy"].map((item) => (
                 <button key={item} type="button" className={`transport-chip ${transport === item ? "is-active" : ""}`} onClick={() => setTransport(item)}>
                   <Car size={16} /> {item}
                 </button>
@@ -3881,74 +3800,6 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
             </div>
           </div>
 
-          {transport === "Thuê xe" && (
-            <>
-              <div className="planner-field">
-                <div className="planner-field-head"><span>Chọn loại xe</span></div>
-                <div className="transport-row">
-                  {Object.entries(RENTAL_PRICING).map(([key, pricing]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`transport-chip ${rentalVehicle === key ? "is-active" : ""}`}
-                      onClick={() => setRentalVehicle(key)}
-                    >
-                      <Car size={16} /> {pricing.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="planner-field">
-                <div className="planner-field-head"><span>Thời gian thuê</span></div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  <div>
-                    <label style={{ fontSize: "12px", color: "#666" }}>Số lượng</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max={rentalUnit === "monthly" ? 12 : rentalUnit === "daily" ? 30 : 168}
-                      value={rentalDuration}
-                      onChange={(e) => setRentalDuration(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="border border-stone-200 rounded-lg p-2 w-full text-sm mt-1 bg-stone-50/50"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "12px", color: "#666" }}>Đơn vị</label>
-                    <select
-                      value={rentalUnit}
-                      onChange={(e) => setRentalUnit(e.target.value)}
-                      className="border border-stone-200 rounded-lg p-2 w-full text-sm mt-1 bg-stone-50/50"
-                    >
-                      <option value="hourly">Giờ</option>
-                      <option value="daily">Ngày</option>
-                      <option value="monthly">Tháng</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="planner-field">
-                <div className="planner-field-head"><span>Địa điểm đón xe</span></div>
-                <input
-                  type="text"
-                  placeholder="Vd: Quốc lộ 1A, Bình Thạnh"
-                  value={rentalPickup}
-                  onChange={(e) => setRentalPickup(e.target.value)}
-                  className="border border-stone-200 rounded-xl p-3 bg-stone-50/50 w-full text-sm"
-                />
-              </div>
-
-              <div className="planner-field" style={{ backgroundColor: "#f5f5f5", padding: "12px", borderRadius: "12px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "13px", color: "#666" }}>Giá dự kiến:</span>
-                  <span style={{ fontSize: "16px", fontWeight: "bold", color: "#1e4230" }}>
-                    {calculateRentalPrice(rentalVehicle, rentalDuration, rentalUnit).toLocaleString("vi-VN")} VNĐ
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
 
           <div className="planner-field">
             <div className="planner-field-head">
@@ -3966,18 +3817,12 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
 
           <button
             id="planner-btn-submit"
-            onClick={() => {
-              if (transport === "Thuê xe") {
-                setShowRentalConfirm(true);
-              } else {
-                handleGenerate(false);
-              }
-            }}
-            disabled={isGenerating || (transport !== "Thuê xe" ? limitReached : !rentalPickup.trim())}
+            onClick={() => handleGenerate(false)}
+            disabled={isGenerating || limitReached}
             className="btn btn-primary w-full justify-center mt-2"
           >
-            {isGenerating ? "Đang xử lý..." : transport === "Thuê xe" ? "Đặt xe ngay" : "Lên lịch trình AI"}
-            {transport === "Thuê xe" ? <Car size={18} /> : <Sparkles size={18} />}
+            {isGenerating ? "Đang xử lý..." : "Lên lịch trình AI"}
+            <Sparkles size={18} />
           </button>
           {isBasicPlan && !limitReached && (
             <p className="text-xs text-center text-stone-400 mt-2">
@@ -4271,230 +4116,6 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
           )}
         </Reveal>
       </div>
-
-      {/* ── Rental Booking Confirmation Modal ── */}
-      {showRentalConfirm && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 999,
-          padding: "20px"
-        }}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            style={{
-              backgroundColor: "white",
-              borderRadius: "20px",
-              padding: "32px",
-              maxWidth: "500px",
-              width: "100%",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
-            }}
-          >
-            {rentalBookingStatus === "idle" || rentalBookingStatus === "confirming" ? (
-              <>
-                <h2 style={{ fontSize: "24px", fontWeight: "bold", color: "#1e4230", marginBottom: "20px" }}>
-                  ✓ Xác nhận đặt xe
-                </h2>
-
-                <div style={{ backgroundColor: "#f5f5f5", borderRadius: "12px", padding: "16px", marginBottom: "20px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", paddingBottom: "12px", borderBottom: "1px solid #e5e5e5" }}>
-                    <span style={{ fontSize: "13px", color: "#666" }}>Loại xe:</span>
-                    <span style={{ fontWeight: "bold", color: "#1e4230" }}>{RENTAL_PRICING[rentalVehicle].name}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", paddingBottom: "12px", borderBottom: "1px solid #e5e5e5" }}>
-                    <span style={{ fontSize: "13px", color: "#666" }}>Thời gian thuê:</span>
-                    <span style={{ fontWeight: "bold", color: "#1e4230" }}>{rentalDuration} {rentalUnit === "hourly" ? "giờ" : rentalUnit === "daily" ? "ngày" : "tháng"}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", paddingBottom: "12px", borderBottom: "1px solid #e5e5e5" }}>
-                    <span style={{ fontSize: "13px", color: "#666" }}>Địa điểm đón:</span>
-                    <span style={{ fontWeight: "bold", color: "#1e4230" }}>{rentalPickup}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: "13px", color: "#666" }}>Giá tiền:</span>
-                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#c96420" }}>
-                      {calculateRentalPrice(rentalVehicle, rentalDuration, rentalUnit).toLocaleString("vi-VN")} VNĐ
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  <button
-                    onClick={() => {
-                      setShowRentalConfirm(false);
-                      setRentalBookingStatus("idle");
-                    }}
-                    disabled={rentalBookingStatus === "confirming"}
-                    style={{
-                      padding: "12px",
-                      borderRadius: "10px",
-                      border: "1px solid #ddd",
-                      backgroundColor: "white",
-                      cursor: rentalBookingStatus === "confirming" ? "not-allowed" : "pointer",
-                      fontWeight: "bold",
-                      color: "#666",
-                      opacity: rentalBookingStatus === "confirming" ? 0.5 : 1
-                    }}
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    onClick={handleConfirmRentalBooking}
-                    disabled={rentalBookingStatus === "confirming"}
-                    style={{
-                      padding: "12px",
-                      borderRadius: "10px",
-                      backgroundColor: "#1e4230",
-                      color: "white",
-                      fontWeight: "bold",
-                      border: "none",
-                      cursor: rentalBookingStatus === "confirming" ? "not-allowed" : "pointer",
-                      opacity: rentalBookingStatus === "confirming" ? 0.7 : 1
-                    }}
-                  >
-                    {rentalBookingStatus === "confirming" ? "Đang xác nhận..." : "Xác nhận đặt xe"}
-                  </button>
-                </div>
-              </>
-            ) : rentalBookingStatus === "success" ? (
-              <>
-                <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                  <div style={{ fontSize: "48px", marginBottom: "12px" }}>✅</div>
-                  <h2 style={{ fontSize: "24px", fontWeight: "bold", color: "#1e4230", marginBottom: "8px" }}>
-                    Đặt xe thành công!
-                  </h2>
-                  <p style={{ fontSize: "13px", color: "#666" }}>
-                    Mã booking của bạn
-                  </p>
-                </div>
-
-                {vehicleImage && (
-                  <div style={{ marginBottom: "20px" }}>
-                    <img
-                      src={vehicleImage.image_url}
-                      alt={vehicleImage.vehicle_type}
-                      style={{
-                        width: "100%",
-                        height: "250px",
-                        objectFit: "cover",
-                        borderRadius: "12px",
-                        marginBottom: "12px",
-                        border: "2px solid #1e4230"
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                      }}
-                    />
-                    <div style={{ backgroundColor: "#f5f5f5", borderRadius: "12px", padding: "12px" }}>
-                      <p style={{ fontSize: "12px", color: "#666", marginBottom: "6px" }}>
-                        <strong>{vehicleImage.description}</strong>
-                      </p>
-                      <p style={{ fontSize: "11px", color: "#888", marginBottom: "4px" }}>
-                        📋 {vehicleImage.features}
-                      </p>
-                      <p style={{ fontSize: "11px", color: "#888" }}>
-                        👥 Sức chứa: {vehicleImage.capacity}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div style={{
-                  backgroundColor: "#f5f5f5",
-                  borderRadius: "12px",
-                  padding: "16px",
-                  marginBottom: "20px",
-                  textAlign: "center",
-                  fontFamily: "monospace"
-                }}>
-                  <p style={{ fontSize: "12px", color: "#666", marginBottom: "8px" }}>Mã ghi nhận</p>
-                  <p style={{ fontSize: "20px", fontWeight: "bold", color: "#1e4230", letterSpacing: "2px" }}>
-                    {rentalBookingId}
-                  </p>
-                </div>
-
-                <div style={{ backgroundColor: "#f5f5f5", borderRadius: "12px", padding: "16px", marginBottom: "20px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                    <span style={{ fontSize: "13px", color: "#666" }}>Loại xe:</span>
-                    <span style={{ fontWeight: "bold" }}>{RENTAL_PRICING[rentalVehicle].name}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                    <span style={{ fontSize: "13px", color: "#666" }}>Thời gian:</span>
-                    <span style={{ fontWeight: "bold" }}>{rentalDuration} {rentalUnit === "hourly" ? "giờ" : rentalUnit === "daily" ? "ngày" : "tháng"}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: "13px", color: "#666" }}>Tổng tiền:</span>
-                    <span style={{ fontWeight: "bold", color: "#c96420", fontSize: "16px" }}>
-                      {calculateRentalPrice(rentalVehicle, rentalDuration, rentalUnit).toLocaleString("vi-VN")} VNĐ
-                    </span>
-                  </div>
-                </div>
-
-                <p style={{ fontSize: "12px", color: "#666", marginBottom: "20px", textAlign: "center", lineHeight: "1.5" }}>
-                  Tài xế sẽ liên hệ với bạn sớm.<br/>
-                  Cảm ơn bạn đã sử dụng dịch vụ WanderHUB! 🚗
-                </p>
-
-                <button
-                  onClick={() => {
-                    setShowRentalConfirm(false);
-                    setRentalBookingStatus("idle");
-                    setRentalBookingId(null);
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    borderRadius: "10px",
-                    backgroundColor: "#1e4230",
-                    color: "white",
-                    fontWeight: "bold",
-                    border: "none",
-                    cursor: "pointer"
-                  }}
-                >
-                  Đóng
-                </button>
-              </>
-            ) : (
-              <>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "48px", marginBottom: "12px" }}>❌</div>
-                  <h2 style={{ fontSize: "24px", fontWeight: "bold", color: "#d32f2f", marginBottom: "12px" }}>
-                    Lỗi đặt xe
-                  </h2>
-                  <p style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
-                    Vui lòng thử lại sau
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowRentalConfirm(false);
-                    setRentalBookingStatus("idle");
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    borderRadius: "10px",
-                    backgroundColor: "#1e4230",
-                    color: "white",
-                    fontWeight: "bold",
-                    border: "none",
-                    cursor: "pointer"
-                  }}
-                >
-                  Quay lại
-                </button>
-              </>
-            )}
-          </motion.div>
-        </div>
-      )}
     </PageShell>
   );
 }
