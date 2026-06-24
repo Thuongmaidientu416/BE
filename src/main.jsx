@@ -4118,53 +4118,118 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
                       : <><MapPin size={16} /> Hoàn tất - Xem bản đồ</>}
                   </button>
                 </div>
-                {showItineraryPage && rideLegs.length > 0 && (
+                {showItineraryPage && selectedStops.length > 0 && (
                   <motion.div
                     ref={itineraryPageRef}
-                    initial={{ opacity: 0, y: 24 }}
+                    initial={{ opacity: 0, y: 32 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
-                    style={{ marginTop: "24px", borderRadius: "20px", overflow: "hidden", border: "1.5px solid #e2ede7", boxShadow: "0 8px 32px rgba(30,66,48,0.10)" }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                    style={{ marginTop: "28px", borderRadius: "24px", overflow: "hidden", border: "1.5px solid #ddeee5", boxShadow: "0 16px 48px rgba(30,66,48,0.13)" }}
                   >
-                    {/* ── Header ── */}
-                    <div style={{ background: "linear-gradient(135deg,#1e4230 0%,#2d5a3d 100%)", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div>
-                        <div style={{ fontSize: "11px", fontWeight: "700", letterSpacing: "1.5px", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", marginBottom: "4px" }}>Lịch trình của bạn</div>
-                        <div style={{ fontSize: "18px", fontWeight: "800", color: "white" }}>{selectedStops.length} điểm · {transport}</div>
-                      </div>
-                      <button
-                        onClick={() => { setShowItineraryPage(false); setShowRideBooking(false); }}
-                        style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "white" }}
-                      >✕</button>
-                    </div>
-
-                    {/* ── Stops timeline ── */}
-                    <div style={{ background: "#f9fbf9", padding: "20px 24px", borderBottom: "1px solid #e2ede7" }}>
-                      {selectedStops.map((stop, idx) => (
-                        <div key={stop.provider_id || idx} style={{ display: "flex", gap: "14px", marginBottom: idx < selectedStops.length - 1 ? "0" : "0" }}>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                            <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#1e4230", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "13px", flexShrink: 0 }}>{idx + 1}</div>
-                            {idx < selectedStops.length - 1 && <div style={{ width: "2px", flex: 1, background: "#c8e0d0", margin: "4px 0", minHeight: "28px" }} />}
-                          </div>
-                          <div style={{ paddingBottom: idx < selectedStops.length - 1 ? "20px" : "0", flex: 1 }}>
-                            <div style={{ fontWeight: "700", fontSize: "14px", color: "#1e4230" }}>{stop.title}</div>
-                            <div style={{ fontSize: "12px", color: "#777", marginTop: "2px" }}>{stop.category || stop.category_code} · {stop.district} · {Number(stop.avg_price_vnd || stop.cost_estimated || 0).toLocaleString("vi-VN")} VNĐ</div>
-                            {stop.arrival_time && <div style={{ fontSize: "11px", color: "#aaa", marginTop: "1px" }}>🕐 {stop.arrival_time} · {stop.duration_min} phút</div>}
-                          </div>
+                    {/* ── HEADER ── */}
+                    <div style={{ background: "linear-gradient(135deg,#1a3a2a 0%,#2d5a3d 60%,#3a7a52 100%)", padding: "28px 28px 24px", position: "relative", overflow: "hidden" }}>
+                      <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "140px", height: "140px", borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+                      <div style={{ position: "absolute", bottom: "-20px", left: "40%", width: "90px", height: "90px", borderRadius: "50%", background: "rgba(255,255,255,0.03)" }} />
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
+                        <div>
+                          <div style={{ fontSize: "10px", fontWeight: "700", letterSpacing: "2px", color: "rgba(255,255,255,0.5)", textTransform: "uppercase", marginBottom: "8px" }}>✦ WanderHUB · Lịch trình cá nhân</div>
+                          <h2 style={{ fontSize: "22px", fontWeight: "900", color: "white", margin: "0 0 6px", lineHeight: 1.2 }}>{selectedMood?.label || "Hành trình"} tại {district?.name || "TP.HCM"}</h2>
+                          <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.65)" }}>{selectedStops.length} điểm dừng · {routeDuration} · {transport}</div>
                         </div>
-                      ))}
+                        <button
+                          onClick={() => { setShowItineraryPage(false); setShowRideBooking(false); }}
+                          style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "white", fontSize: "16px", flexShrink: 0 }}
+                        >✕</button>
+                      </div>
+                      {/* Summary pills */}
+                      <div style={{ display: "flex", gap: "8px", marginTop: "18px", flexWrap: "wrap" }}>
+                        {[
+                          { icon: "💰", label: routeCost },
+                          { icon: "⏱", label: routeDuration },
+                          { icon: "📍", label: district?.name },
+                          { icon: "🎯", label: selectedMood?.label },
+                        ].map((pill) => (
+                          <span key={pill.label} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "20px", padding: "4px 12px", fontSize: "12px", color: "white", fontWeight: "600" }}>
+                            {pill.icon} {pill.label}
+                          </span>
+                        ))}
+                      </div>
                     </div>
 
-                    {/* ── Journey Tracker (map + booking) ── */}
-                    <div ref={journeyTrackerRef}>
-                      <JourneyTracker
-                        rideLegs={rideLegs}
-                        transport={transport}
-                        totalRideMinutes={totalRideMinutes}
-                        itineraryId={aiResponse?.itinerary_id ?? null}
-                        setShowQrCode={setShowQrCode}
-                      />
+                    {/* ── TIMELINE ── */}
+                    <div style={{ background: "white", padding: "0 0 8px" }}>
+                      {selectedStops.map((stop, idx) => {
+                        const leg = rideLegs[idx];
+                        const travelNext = rideLegs[idx + 1]?.travelFromPrevious;
+                        const price = Number(stop.avg_price_vnd || stop.cost_estimated || 0);
+                        return (
+                          <div key={stop.provider_id || idx}>
+                            {/* Stop card */}
+                            <div style={{ display: "flex", gap: "0", padding: "0" }}>
+                              {/* Left spine */}
+                              <div style={{ width: "60px", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "20px" }}>
+                                <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: idx === 0 ? "#1e4230" : idx === selectedStops.length - 1 ? "#c96420" : "#2d5a3d", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", fontSize: "14px", boxShadow: "0 2px 8px rgba(30,66,48,0.25)", zIndex: 1 }}>{idx + 1}</div>
+                                {idx < selectedStops.length - 1 && <div style={{ width: "2px", flex: 1, background: "linear-gradient(#2d5a3d,#c8e0d0)", minHeight: "40px", marginTop: "4px" }} />}
+                              </div>
+                              {/* Content */}
+                              <div style={{ flex: 1, padding: "16px 20px 16px 0", borderBottom: idx < selectedStops.length - 1 ? "none" : "none" }}>
+                                <div style={{ display: "flex", gap: "14px", alignItems: "flex-start" }}>
+                                  {/* Photo */}
+                                  {stop.image_url && (
+                                    <img
+                                      src={stop.image_url}
+                                      alt={stop.title}
+                                      onError={e => { e.currentTarget.style.display = "none"; }}
+                                      style={{ width: "80px", height: "64px", borderRadius: "12px", objectFit: "cover", flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}
+                                    />
+                                  )}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px", flexWrap: "wrap" }}>
+                                      <div style={{ fontWeight: "800", fontSize: "15px", color: "#1e4230", lineHeight: 1.3 }}>{stop.title}</div>
+                                      {stop.arrival_time && <div style={{ fontSize: "13px", fontWeight: "700", color: "#2d5a3d", background: "#e8f5e9", borderRadius: "8px", padding: "2px 10px", whiteSpace: "nowrap" }}>🕐 {stop.arrival_time}</div>}
+                                    </div>
+                                    {/* Badges */}
+                                    <div style={{ display: "flex", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
+                                      {stop.category && <span style={{ fontSize: "11px", background: "#f0f7f2", color: "#2d5a3d", borderRadius: "6px", padding: "2px 8px", fontWeight: "600" }}>{stop.category}</span>}
+                                      {(stop.district || district?.name) && <span style={{ fontSize: "11px", background: "#f5f0ff", color: "#6b21a8", borderRadius: "6px", padding: "2px 8px", fontWeight: "600" }}>📍 {stop.district || district?.name}</span>}
+                                      {stop.duration_min && <span style={{ fontSize: "11px", background: "#fff7ed", color: "#c96420", borderRadius: "6px", padding: "2px 8px", fontWeight: "600" }}>⏱ {stop.duration_min} phút</span>}
+                                    </div>
+                                    {/* Reason */}
+                                    {stop.reason && <p style={{ fontSize: "12px", color: "#666", marginTop: "8px", lineHeight: 1.5, fontStyle: "italic" }}>"{stop.reason}"</p>}
+                                    {/* Price + score */}
+                                    <div style={{ display: "flex", gap: "12px", marginTop: "8px", alignItems: "center" }}>
+                                      {price > 0 && <span style={{ fontSize: "13px", fontWeight: "700", color: "#1e4230" }}>💰 {price.toLocaleString("vi-VN")} VNĐ</span>}
+                                      {stop.score && <span style={{ fontSize: "11px", color: "#999" }}>★ {Math.round(stop.score)}/100</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Travel connector between stops */}
+                            {idx < selectedStops.length - 1 && travelNext && (
+                              <div style={{ display: "flex", alignItems: "center", gap: "0", marginLeft: "60px", marginRight: "20px", marginBottom: "0" }}>
+                                <div style={{ background: "#f0f7f2", border: "1px dashed #b8d8c4", borderRadius: "8px", padding: "5px 14px", fontSize: "11px", color: "#4a8a5e", fontWeight: "600", marginBottom: "0" }}>
+                                  🚗 Di chuyển ~{travelNext} phút đến điểm tiếp theo
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
+
+                    {/* ── BOOKING SECTION ── */}
+                    {rideLegs.length > 0 && (
+                      <div ref={journeyTrackerRef} style={{ borderTop: "1.5px solid #e8f0eb" }}>
+                        <JourneyTracker
+                          rideLegs={rideLegs}
+                          transport={transport}
+                          totalRideMinutes={totalRideMinutes}
+                          itineraryId={aiResponse?.itinerary_id ?? null}
+                          setShowQrCode={setShowQrCode}
+                        />
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </div>
