@@ -3043,6 +3043,8 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
   const [bookingError, setBookingError] = useState("");
   const [showToast, setShowToast] = useState(false);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
+  const modalMapRef = useRef(null);
+  const modalMapInstanceRef = useRef(null);
 
   const isRide = transport === "Thuê xe";
   const isWalk = transport === "Đi bộ thong thả";
@@ -3140,6 +3142,24 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
     };
   }, [rideLegs]);
 
+  useEffect(() => {
+    if (!showItineraryModal || !modalMapRef.current) return;
+    if (modalMapInstanceRef.current) { modalMapInstanceRef.current.remove(); modalMapInstanceRef.current = null; }
+    const getCoords = (leg, i) => leg.latitude && leg.longitude ? [leg.latitude, leg.longitude] : HCM_FALLBACK_COORDS[i % HCM_FALLBACK_COORDS.length];
+    const coords = rideLegs.map((leg, i) => getCoords(leg, i));
+    const center = coords[0] || [10.7769, 106.7009];
+    const map = L.map(modalMapRef.current, { zoomControl: true, scrollWheelZoom: false }).setView(center, 14);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
+    if (coords.length > 1) L.polyline(coords, { color: "#2d5a3d", weight: 3, dashArray: "6 4", opacity: 0.8 }).addTo(map);
+    coords.forEach((coord, i) => {
+      const icon = L.divIcon({ className: "", html: `<div style="width:28px;height:28px;border-radius:50%;background:${i===0?"#c96420":"#2d5a3d"};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;box-shadow:0 2px 8px rgba(0,0,0,0.25);border:2px solid #fff">${i+1}</div>`, iconSize: [28,28], iconAnchor: [14,14] });
+      L.marker(coord, { icon }).addTo(map).bindPopup(`<b>${rideLegs[i]?.title || ""}</b>`);
+    });
+    if (coords.length > 1) map.fitBounds(L.latLngBounds(coords), { padding: [32, 32] });
+    modalMapInstanceRef.current = map;
+    return () => { map.remove(); modalMapInstanceRef.current = null; };
+  }, [showItineraryModal, rideLegs]);
+
   return (
     <>
       {showToast && (
@@ -3192,80 +3212,94 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
       {/* ── ITINERARY MODAL ── */}
       {showItineraryModal && selectedStops.length > 0 && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", zIndex: 2000, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.65)", zIndex: 2000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
           onClick={() => setShowItineraryModal(false)}
         >
           <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] }}
+            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+            transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
             onClick={e => e.stopPropagation()}
-            style={{ backgroundColor: "white", borderRadius: "24px 24px 0 0", width: "100%", maxWidth: "600px", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column" }}
+            style={{ backgroundColor: "#f7faf8", borderRadius: "24px 24px 0 0", width: "100%", maxWidth: "640px", maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column" }}
           >
-            {/* Header */}
-            <div style={{ background: "linear-gradient(135deg,#1a3a2a 0%,#2d5a3d 60%,#3a7a52 100%)", padding: "24px 24px 20px", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            {/* ── Header ── */}
+            <div style={{ background: "linear-gradient(135deg,#1a3a2a,#2d5a3d,#3a7a52)", padding: "22px 22px 18px", flexShrink: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
                 <div>
-                  <div style={{ fontSize: "10px", fontWeight: "700", letterSpacing: "2px", color: "rgba(255,255,255,0.5)", textTransform: "uppercase", marginBottom: "6px" }}>✦ WanderHUB · Lịch trình của bạn</div>
-                  <h2 style={{ fontSize: "20px", fontWeight: "900", color: "white", margin: "0 0 4px" }}>{selectedMood?.label || "Hành trình"} · {district?.name}</h2>
-                  <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.65)" }}>{selectedStops.length} điểm · {routeDuration} · {transport}</div>
+                  <div style={{ fontSize: "9px", fontWeight: "700", letterSpacing: "2.5px", color: "rgba(255,255,255,0.45)", textTransform: "uppercase", marginBottom: "5px" }}>✦ WanderHUB · Lịch trình cá nhân</div>
+                  <div style={{ fontSize: "19px", fontWeight: "900", color: "white", lineHeight: 1.2 }}>{selectedMood?.label || "Hành trình"} · {district?.name}</div>
+                  <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", marginTop: "3px" }}>{selectedStops.length} điểm dừng · {routeDuration} · {transport}</div>
                 </div>
-                <button onClick={() => setShowItineraryModal(false)} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "white", fontSize: "16px", flexShrink: 0 }}>✕</button>
+                <button onClick={() => setShowItineraryModal(false)} style={{ background: "rgba(255,255,255,0.1)", border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "white", fontSize: "15px", flexShrink: 0 }}>✕</button>
               </div>
-              <div style={{ display: "flex", gap: "8px", marginTop: "14px", flexWrap: "wrap" }}>
-                {[{ icon: "💰", label: routeCost }, { icon: "⏱", label: routeDuration }, { icon: "🚗", label: transport }].map(p => (
-                  <span key={p.label} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "20px", padding: "3px 12px", fontSize: "12px", color: "white", fontWeight: "600" }}>{p.icon} {p.label}</span>
+              <div style={{ display: "flex", gap: "7px", marginTop: "14px", flexWrap: "wrap" }}>
+                {[{e:"💰",l:routeCost},{e:"⏱",l:routeDuration},{e:"🚗",l:transport},{e:"📍",l:district?.name}].map(p => (
+                  <span key={p.l} style={{ background: "rgba(255,255,255,0.11)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: "20px", padding: "3px 11px", fontSize: "11px", color: "rgba(255,255,255,0.9)", fontWeight: "600" }}>{p.e} {p.l}</span>
                 ))}
               </div>
             </div>
 
-            {/* Scrollable timeline */}
-            <div style={{ overflowY: "auto", flex: 1, padding: "8px 0 24px" }}>
-              {selectedStops.map((stop, idx) => {
-                const travelNext = rideLegs[idx + 1]?.travelFromPrevious;
-                const price = Number(stop.avg_price_vnd || stop.cost_estimated || 0);
-                return (
-                  <div key={stop.provider_id || idx}>
-                    <div style={{ display: "flex" }}>
-                      {/* Spine */}
-                      <div style={{ width: "56px", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18px" }}>
-                        <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: idx === 0 ? "#1e4230" : idx === selectedStops.length - 1 ? "#c96420" : "#2d5a3d", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", fontSize: "13px", boxShadow: "0 2px 8px rgba(30,66,48,0.2)" }}>{idx + 1}</div>
-                        {idx < selectedStops.length - 1 && <div style={{ width: "2px", flex: 1, minHeight: "32px", marginTop: "4px", background: "linear-gradient(#2d5a3d55,#c8e0d0)" }} />}
-                      </div>
-                      {/* Content */}
-                      <div style={{ flex: 1, padding: "14px 20px 14px 0" }}>
-                        <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                          {stop.image_url && (
-                            <img src={stop.image_url} alt={stop.title} onError={e => { e.currentTarget.style.display = "none"; }} style={{ width: "72px", height: "58px", borderRadius: "10px", objectFit: "cover", flexShrink: 0 }} />
-                          )}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", flexWrap: "wrap", alignItems: "flex-start" }}>
-                              <div style={{ fontWeight: "800", fontSize: "14px", color: "#1e4230" }}>{stop.title}</div>
-                              {stop.arrival_time && <div style={{ fontSize: "12px", fontWeight: "700", color: "#2d5a3d", background: "#e8f5e9", borderRadius: "8px", padding: "2px 9px", whiteSpace: "nowrap" }}>🕐 {stop.arrival_time}</div>}
+            {/* ── Scrollable body ── */}
+            <div style={{ overflowY: "auto", flex: 1 }}>
+
+              {/* Map */}
+              {rideLegs.length > 0 && (
+                <div style={{ height: "200px", position: "relative" }}>
+                  <div ref={modalMapRef} style={{ width: "100%", height: "100%" }} />
+                  <div style={{ position: "absolute", bottom: "10px", left: "50%", transform: "translateX(-50%)", background: "rgba(30,66,48,0.85)", color: "white", fontSize: "11px", fontWeight: "600", borderRadius: "20px", padding: "4px 14px", backdropFilter: "blur(4px)", pointerEvents: "none" }}>
+                    {rideLegs.length} điểm · {totalRideMinutes} phút di chuyển
+                  </div>
+                </div>
+              )}
+
+              {/* Timeline */}
+              <div style={{ padding: "20px 18px 32px" }}>
+                <div style={{ fontSize: "11px", fontWeight: "700", letterSpacing: "1.5px", color: "#aaa", textTransform: "uppercase", marginBottom: "16px" }}>Chi tiết hành trình</div>
+                {selectedStops.map((stop, idx) => {
+                  const travelNext = rideLegs[idx + 1]?.travelFromPrevious;
+                  const price = Number(stop.avg_price_vnd || stop.cost_estimated || 0);
+                  const isFirst = idx === 0;
+                  const isLast = idx === selectedStops.length - 1;
+                  return (
+                    <div key={stop.provider_id || idx}>
+                      {/* Stop row */}
+                      <div style={{ display: "flex", gap: "0", background: "white", borderRadius: "16px", overflow: "hidden", boxShadow: "0 2px 10px rgba(30,66,48,0.07)", marginBottom: "0", border: "1px solid #e8f0eb" }}>
+                        {/* Left accent */}
+                        <div style={{ width: "4px", background: isFirst ? "#c96420" : isLast ? "#7c3aed" : "#2d5a3d", flexShrink: 0 }} />
+                        {/* Photo */}
+                        {stop.image_url && (
+                          <img src={stop.image_url} alt={stop.title} onError={e => { e.currentTarget.style.display = "none"; }}
+                            style={{ width: "88px", height: "88px", objectFit: "cover", flexShrink: 0 }} />
+                        )}
+                        {/* Info */}
+                        <div style={{ flex: 1, padding: "12px 14px", minWidth: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px", marginBottom: "6px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: isFirst ? "#c96420" : isLast ? "#7c3aed" : "#2d5a3d", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "11px", flexShrink: 0 }}>{idx + 1}</div>
+                              <div style={{ fontWeight: "800", fontSize: "14px", color: "#1e4230", lineHeight: 1.2 }}>{stop.title}</div>
                             </div>
-                            <div style={{ display: "flex", gap: "5px", marginTop: "5px", flexWrap: "wrap" }}>
-                              {stop.category && <span style={{ fontSize: "10px", background: "#f0f7f2", color: "#2d5a3d", borderRadius: "5px", padding: "2px 7px", fontWeight: "600" }}>{stop.category}</span>}
-                              {stop.district && <span style={{ fontSize: "10px", background: "#f5f0ff", color: "#6b21a8", borderRadius: "5px", padding: "2px 7px", fontWeight: "600" }}>📍 {stop.district}</span>}
-                              {stop.duration_min && <span style={{ fontSize: "10px", background: "#fff7ed", color: "#c96420", borderRadius: "5px", padding: "2px 7px", fontWeight: "600" }}>⏱ {stop.duration_min} phút</span>}
-                            </div>
-                            {stop.reason && <p style={{ fontSize: "11px", color: "#777", marginTop: "6px", lineHeight: 1.5, fontStyle: "italic" }}>"{stop.reason}"</p>}
-                            {price > 0 && <div style={{ fontSize: "12px", fontWeight: "700", color: "#1e4230", marginTop: "6px" }}>💰 {price.toLocaleString("vi-VN")} VNĐ</div>}
+                            {stop.arrival_time && <div style={{ fontSize: "11px", fontWeight: "700", color: "#2d5a3d", background: "#e8f5e9", borderRadius: "6px", padding: "2px 8px", whiteSpace: "nowrap", flexShrink: 0 }}>🕐 {stop.arrival_time}</div>}
                           </div>
+                          <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", marginBottom: "6px" }}>
+                            {stop.category && <span style={{ fontSize: "10px", background: "#f0f7f2", color: "#2d5a3d", borderRadius: "4px", padding: "1px 7px", fontWeight: "600" }}>{stop.category}</span>}
+                            {stop.district && <span style={{ fontSize: "10px", background: "#f3f0ff", color: "#6b21a8", borderRadius: "4px", padding: "1px 7px", fontWeight: "600" }}>📍 {stop.district}</span>}
+                            {stop.duration_min && <span style={{ fontSize: "10px", background: "#fff7ed", color: "#c96420", borderRadius: "4px", padding: "1px 7px", fontWeight: "600" }}>⏱ {stop.duration_min} phút</span>}
+                          </div>
+                          {stop.reason && <div style={{ fontSize: "11px", color: "#888", lineHeight: 1.5, fontStyle: "italic", marginBottom: "4px" }}>"{stop.reason}"</div>}
+                          {price > 0 && <div style={{ fontSize: "12px", fontWeight: "700", color: "#1e4230" }}>💰 {price.toLocaleString("vi-VN")} VNĐ</div>}
                         </div>
                       </div>
+                      {/* Travel connector */}
+                      {!isLast && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "8px 0 8px 20px" }}>
+                          <div style={{ width: "2px", height: "24px", background: "#c8e0d0" }} />
+                          {travelNext && <div style={{ fontSize: "10px", color: "#7aaa8e", fontWeight: "600", background: "#f0f7f2", borderRadius: "6px", padding: "2px 10px", border: "1px dashed #b8d8c4" }}>🚗 ~{travelNext} phút di chuyển</div>}
+                        </div>
+                      )}
                     </div>
-                    {idx < selectedStops.length - 1 && travelNext && (
-                      <div style={{ marginLeft: "56px", marginRight: "20px", marginBottom: "4px" }}>
-                        <div style={{ background: "#f0f7f2", border: "1px dashed #b8d8c4", borderRadius: "8px", padding: "4px 12px", fontSize: "11px", color: "#4a8a5e", fontWeight: "600", display: "inline-block" }}>🚗 ~{travelNext} phút di chuyển</div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </motion.div>
         </motion.div>
