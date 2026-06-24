@@ -43,7 +43,7 @@ def _fetch_user_affinity(conn: sqlite3.Connection, user_id: int | None) -> tuple
             """,
             (user_id,),
         ).fetchall()
-    except sqlite3.OperationalError:
+    except Exception:
         return {}, {}
 
     provider_boosts = {
