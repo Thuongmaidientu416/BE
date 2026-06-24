@@ -1956,7 +1956,7 @@ function Home({ user }) {
               Bắt đầu hành trình thiết lập lịch trình trải nghiệm đô thị Sài Gòn trọn vẹn chỉ với 3 giây chọn mood cùng WanderHUB.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <NavLink to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} className="btn px-8 py-4 shadow-lg hover:shadow-xl transition-all font-bold" style={{ backgroundColor: "white", color: "#1e4230", border: "none" }}>
+              <NavLink to={!user ? "/auth" : hasPlan() ? "/planner" : "/pricing"} className="btn px-8 py-4 transition-all font-bold" style={{ backgroundColor: "white", color: "#1e4230", border: "none", boxShadow: "0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)" }}>
                 Lên lịch trình ngay <ArrowRight size={18} />
               </NavLink>
               <NavLink to="/explore" className="btn btn-glass text-white border-white/20 hover:bg-white/10 px-8 py-4 backdrop-blur-md">
