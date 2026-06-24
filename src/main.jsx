@@ -3045,6 +3045,8 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
   const [showItineraryModal, setShowItineraryModal] = useState(false);
   const modalMapRef = useRef(null);
   const modalMapInstanceRef = useRef(null);
+  const driverMarkerRef = useRef(null);
+  const driverIntervalRef = useRef(null);
 
   const isRide = transport === "Thuê xe";
   const isWalk = transport === "Đi bộ thong thả";
@@ -3075,7 +3077,25 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
       setVehicleFleet(result.remaining.fleet ?? []);
       setVehicleStatus("booked");
       setShowToast(true);
-      setTimeout(() => setShowToast(false), 4000);
+      // Start driver tracking simulation on map
+      if (leafletInstanceRef.current && rideLegs[0]) {
+        const dest = rideLegs[0].latitude && rideLegs[0].longitude
+          ? [rideLegs[0].latitude, rideLegs[0].longitude]
+          : HCM_FALLBACK_COORDS[0];
+        let pos = [dest[0] - 0.008 + Math.random() * 0.004, dest[1] - 0.008 + Math.random() * 0.004];
+        const driverIcon = L.divIcon({ className: "", html: `<div style="background:#c96420;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)">🛵</div>`, iconSize: [32,32], iconAnchor: [16,16] });
+        if (driverMarkerRef.current) driverMarkerRef.current.remove();
+        driverMarkerRef.current = L.marker(pos, { icon: driverIcon }).addTo(leafletInstanceRef.current).bindPopup("Tài xế đang đến...");
+        if (driverIntervalRef.current) clearInterval(driverIntervalRef.current);
+        driverIntervalRef.current = setInterval(() => {
+          pos = [pos[0] + (dest[0] - pos[0]) * 0.12, pos[1] + (dest[1] - pos[1]) * 0.12];
+          driverMarkerRef.current?.setLatLng(pos);
+          if (Math.abs(pos[0] - dest[0]) < 0.0003 && Math.abs(pos[1] - dest[1]) < 0.0003) {
+            clearInterval(driverIntervalRef.current);
+            driverMarkerRef.current?.setPopupContent("Tài xế đã đến! 🎉").openPopup();
+          }
+        }, 2000);
+      }
     } catch (err) {
       setBookingError(err.message || "Đặt xe thất bại. Vui lòng thử lại.");
       setVehicleStatus("selecting");
@@ -3306,16 +3326,21 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
       )}
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }}
-        style={{ borderRadius: "20px", overflow: "hidden", border: "1.5px solid #ddeee5", boxShadow: "0 8px 32px rgba(30,66,48,0.10)", background: "white", marginTop: "16px" }}>
+        style={{ gridColumn: "1 / -1", borderRadius: "20px", overflow: "hidden", border: "1.5px solid #ddeee5", boxShadow: "0 8px 32px rgba(30,66,48,0.10)", background: "white", marginTop: "16px", display: "grid", gridTemplateColumns: "1fr 320px", minHeight: "420px" }}>
 
-        {/* Map */}
-        <div style={{ height: "180px", position: "relative" }}>
-          <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
-          <div style={{ position: "absolute", top: "12px", left: "12px", background: "rgba(30,66,48,0.85)", color: "white", fontSize: "11px", fontWeight: "700", borderRadius: "20px", padding: "4px 12px", backdropFilter: "blur(4px)" }}>
-            🗺 {rideLegs.length} điểm · {totalRideMinutes} phút
+        {/* LEFT: Map */}
+        <div style={{ position: "relative", minHeight: "420px" }}>
+          <div ref={mapContainerRef} style={{ width: "100%", height: "100%", minHeight: "420px" }} />
+          <div style={{ position: "absolute", top: "12px", left: "12px", background: "rgba(30,66,48,0.88)", color: "white", fontSize: "11px", fontWeight: "700", borderRadius: "20px", padding: "5px 14px", backdropFilter: "blur(6px)", zIndex: 500 }}>
+            🗺 {rideLegs.length} điểm · {totalRideMinutes} phút di chuyển
+          </div>
+          <div style={{ position: "absolute", bottom: "12px", left: "12px", background: "rgba(201,100,32,0.9)", color: "white", fontSize: "11px", fontWeight: "600", borderRadius: "20px", padding: "4px 12px", backdropFilter: "blur(4px)", zIndex: 500 }}>
+            🛵 Theo dõi tài xế trực tiếp
           </div>
         </div>
 
+        {/* RIGHT: Info */}
+        <div style={{ borderLeft: "1px solid #e8f0eb", overflowY: "auto", display: "flex", flexDirection: "column" }}>
         {/* Stops */}
         <div style={{ padding: "16px 18px 0" }}>
           <div style={{ fontSize: "10px", fontWeight: "700", letterSpacing: "1.5px", color: "#aaa", textTransform: "uppercase", marginBottom: "12px" }}>Lộ trình</div>
@@ -3456,6 +3481,7 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
             </div>
           )}
         </div>
+        </div>{/* end RIGHT */}
       </motion.div>
     </>
   );
