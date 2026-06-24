@@ -3074,6 +3074,15 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
   };
 
   useEffect(() => {
+    if (vehicleStatus === "booked") {
+      const timer = setTimeout(() => {
+        // Success toast sẽ hiển thị 3 giây rồi tự tắt
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [vehicleStatus]);
+
+  useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (leafletInstanceRef.current) {
@@ -3133,12 +3142,42 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
   }, [rideLegs]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="journey-tracker-panel"
-    >
+    <>
+      {vehicleStatus === "booked" && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+          style={{
+            position: "fixed",
+            top: "20px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#1e4230",
+            color: "white",
+            padding: "16px 24px",
+            borderRadius: "12px",
+            boxShadow: "0 4px 20px rgba(30, 66, 48, 0.3)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            fontSize: "14px",
+            fontWeight: "bold"
+          }}
+        >
+          <Check size={20} />
+          ✅ Lịch trình đã được lên thành công!
+        </motion.div>
+      )}
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="journey-tracker-panel"
+      >
       <div className="journey-tracker-inner">
         <div className="journey-tracker-map-wrap">
           <div ref={mapContainerRef} />
@@ -3309,6 +3348,7 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
         </div>
       </div>
     </motion.div>
+    </>
   );
 }
 
