@@ -2994,6 +2994,38 @@ const MOCK_DRIVERS = [
   { name: "Anh Tuấn", rating: 4.9, plate: "51F-567.89", eta: "8 phút", distance: "3.1km" },
 ];
 
+// ── WanderHUB Vehicle Pricing ──
+const VEHICLE_PRICING = {
+  motorbike: {
+    basePrice: 25000,     // VNĐ
+    pricePerKm: 8000,      // VNĐ/km
+    name: "Xe máy WanderHUB",
+  },
+  car7: {
+    basePrice: 50000,      // VNĐ
+    pricePerKm: 12000,     // VNĐ/km
+    name: "Xe 7 chỗ WanderHUB",
+  },
+};
+
+const calculateDistance = (from, to) => {
+  if (!from?.latitude || !from?.longitude || !to?.latitude || !to?.longitude) return 0;
+  const toRad = (value) => (value * Math.PI) / 180;
+  const earthKm = 6371;
+  const dLat = toRad(to.latitude - from.latitude);
+  const dLon = toRad(to.longitude - from.longitude);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(from.latitude)) * Math.cos(toRad(to.latitude)) * Math.sin(dLon / 2) ** 2;
+  const distance = earthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(distance * 10) / 10; // 1 decimal place
+};
+
+const calculateVehiclePrice = (vehicleType, distanceKm) => {
+  const pricing = VEHICLE_PRICING[vehicleType];
+  if (!pricing) return 0;
+  return Math.round(pricing.basePrice + pricing.pricePerKm * distanceKm);
+};
+
 function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) {
   const mapContainerRef = useRef(null);
   const leafletInstanceRef = useRef(null);
@@ -3001,6 +3033,8 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) 
   // "idle" | "loading" | "selecting" | "booking" | "booked" | "unavailable"
   const [vehicleStatus, setVehicleStatus] = useState("idle");
   const [bookedDriver, setBookedDriver] = useState(null);
+  const [bookedVehicleType, setBookedVehicleType] = useState(null);
+  const [bookedPrice, setBookedPrice] = useState(0);
   const [vehicleFleet, setVehicleFleet] = useState([]);
 
   const isRide = transport === "Thuê Tour Guide";
@@ -3020,8 +3054,13 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) 
   const handleBookWanderHub = async (vehicleType) => {
     setVehicleStatus("booking");
     try {
+      const totalDistance = rideLegs.reduce((sum, leg) => sum + leg.distanceFromPrevious, 0);
+      const price = calculateVehiclePrice(vehicleType, totalDistance);
+
       const result = await apiBookVehicle(vehicleType, itineraryId ?? null);
       setBookedDriver(result.driver);
+      setBookedVehicleType(vehicleType);
+      setBookedPrice(price);
       setVehicleFleet(result.remaining.fleet ?? []);
       setVehicleStatus("booked");
     } catch {
@@ -3148,19 +3187,22 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) 
             {isRide && vehicleStatus === "selecting" && (() => {
               const moto = vehicleFleet.find(v => v.vehicle_type === "motorbike");
               const car7 = vehicleFleet.find(v => v.vehicle_type === "car7");
+              const totalDistance = rideLegs.reduce((sum, leg) => sum + leg.distanceFromPrevious, 0);
+              const motoPrice = calculateVehiclePrice("motorbike", totalDistance);
+              const car7Price = calculateVehiclePrice("car7", totalDistance);
               return (
                 <div className="jt-vehicle-available">
                   <div className="jt-vehicle-header">
                     <span className="jt-dot-green" /> Chọn loại xe
                   </div>
-                  <p className="jt-vehicle-sub">Tài xế WanderHUB sẵn sàng đón bạn ngay</p>
+                  <p className="jt-vehicle-sub">Tài xế WanderHUB sẵn sàng đón bạn ngay ({totalDistance.toFixed(1)}km)</p>
                   {moto && (
                     <button
                       className="jt-book-btn"
                       onClick={() => handleBookWanderHub("motorbike")}
                       disabled={moto.available_count === 0 || vehicleStatus === "booking"}
                     >
-                      <Car size={14} /> Xe máy — Còn {moto.available_count} chiếc
+                      <Car size={14} /> Xe máy — {motoPrice.toLocaleString("vi-VN")} VNĐ
                     </button>
                   )}
                   {car7 && (
@@ -3170,7 +3212,7 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) 
                       onClick={() => handleBookWanderHub("car7")}
                       disabled={car7.available_count === 0 || vehicleStatus === "booking"}
                     >
-                      <Car size={14} /> Xe 7 chỗ — Còn {car7.available_count} chiếc
+                      <Car size={14} /> Xe 7 chỗ — {car7Price.toLocaleString("vi-VN")} VNĐ
                     </button>
                   )}
                 </div>
@@ -3198,6 +3240,10 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) 
                   <span>· đến trong <b>{bookedDriver.eta_minutes} phút</b></span>
                 </div>
                 <p className="jt-vehicle-sub" style={{ marginTop: "6px" }}>{bookedDriver.vehicle_label}</p>
+                <div className="jt-driver-row" style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #f5f5f5", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: "13px", color: "#666" }}>Giá dự kiến:</span>
+                  <span style={{ fontSize: "14px", fontWeight: "bold", color: "#1e4230" }}>{bookedPrice.toLocaleString("vi-VN")} VNĐ</span>
+                </div>
               </div>
             )}
 
@@ -3490,18 +3536,12 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
   const rideStops = selectedStops.slice(0, 3);
   const rideLegs = useMemo(() => {
     const estimateMinutes = (from, to) => {
-      if (!from?.latitude || !from?.longitude || !to?.latitude || !to?.longitude) return 12;
-      const toRad = (value) => (value * Math.PI) / 180;
-      const earthKm = 6371;
-      const dLat = toRad(to.latitude - from.latitude);
-      const dLon = toRad(to.longitude - from.longitude);
-      const a = Math.sin(dLat / 2) ** 2
-        + Math.cos(toRad(from.latitude)) * Math.cos(toRad(to.latitude)) * Math.sin(dLon / 2) ** 2;
-      const distance = earthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return Math.max(6, Math.round((distance / 18) * 60 + 5));
+      const dist = calculateDistance(from, to);
+      return Math.max(6, Math.round((dist / 18) * 60 + 5));
     };
     return rideStops.map((stop, index) => ({
       ...stop,
+      distanceFromPrevious: index === 0 ? 0 : calculateDistance(rideStops[index - 1], stop),
       travelFromPrevious: index === 0 ? 0 : estimateMinutes(rideStops[index - 1], stop),
       rideLabel: index === 0 ? "Điểm đón" : `Chặng ${index}`,
     }));
