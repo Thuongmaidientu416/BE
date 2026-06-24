@@ -3008,6 +3008,22 @@ const VEHICLE_PRICING = {
   },
 };
 
+// ── WanderHUB Vehicle Rental Pricing ──
+const RENTAL_PRICING = {
+  motorbike: {
+    hourly: 50000,      // VNĐ/giờ
+    daily: 300000,      // VNĐ/ngày (24h)
+    monthly: 6000000,   // VNĐ/tháng
+    name: "Xe máy WanderHUB",
+  },
+  car7: {
+    hourly: 100000,     // VNĐ/giờ
+    daily: 600000,      // VNĐ/ngày (24h)
+    monthly: 10000000,  // VNĐ/tháng
+    name: "Xe 7 chỗ WanderHUB",
+  },
+};
+
 const calculateDistance = (from, to) => {
   if (!from?.latitude || !from?.longitude || !to?.latitude || !to?.longitude) return 0;
   const toRad = (value) => (value * Math.PI) / 180;
@@ -3024,6 +3040,15 @@ const calculateVehiclePrice = (vehicleType, distanceKm) => {
   const pricing = VEHICLE_PRICING[vehicleType];
   if (!pricing) return 0;
   return Math.round(pricing.basePrice + pricing.pricePerKm * distanceKm);
+};
+
+const calculateRentalPrice = (vehicleType, duration, unit) => {
+  const pricing = RENTAL_PRICING[vehicleType];
+  if (!pricing) return 0;
+  if (unit === "hourly") return pricing.hourly * duration;
+  if (unit === "daily") return pricing.daily * duration;
+  if (unit === "monthly") return pricing.monthly * duration;
+  return 0;
 };
 
 function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId }) {
@@ -3374,6 +3399,10 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
   const [district, setDistrict] = useState(districtOptions[0]);
   const [interests, setInterests] = useState(["cafe_drink", "food", "checkin"]);
   const [transport, setTransport] = useState("Thuê Tour Guide");
+  const [rentalVehicle, setRentalVehicle] = useState("motorbike");
+  const [rentalDuration, setRentalDuration] = useState(1);
+  const [rentalUnit, setRentalUnit] = useState("daily");
+  const [rentalPickup, setRentalPickup] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState("");
   const [showResult, setShowResult] = useState(true);
@@ -3788,13 +3817,82 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
           <div className="planner-field">
             <div className="planner-field-head"><span>Phương tiện di chuyển</span></div>
             <div className="transport-row">
-              {["Thuê Tour Guide", "Đi bộ thong thả", "Tự lái xe máy"].map((item) => (
+              {["Thuê Tour Guide", "Đi bộ thong thả", "Tự lái xe máy", "Thuê xe"].map((item) => (
                 <button key={item} type="button" className={`transport-chip ${transport === item ? "is-active" : ""}`} onClick={() => setTransport(item)}>
                   <Car size={16} /> {item}
                 </button>
               ))}
             </div>
           </div>
+
+          {transport === "Thuê xe" && (
+            <>
+              <div className="planner-field">
+                <div className="planner-field-head"><span>Chọn loại xe</span></div>
+                <div className="transport-row">
+                  {Object.entries(RENTAL_PRICING).map(([key, pricing]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`transport-chip ${rentalVehicle === key ? "is-active" : ""}`}
+                      onClick={() => setRentalVehicle(key)}
+                    >
+                      <Car size={16} /> {pricing.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="planner-field">
+                <div className="planner-field-head"><span>Thời gian thuê</span></div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "12px", color: "#666" }}>Số lượng</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={rentalUnit === "monthly" ? 12 : rentalUnit === "daily" ? 30 : 168}
+                      value={rentalDuration}
+                      onChange={(e) => setRentalDuration(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="border border-stone-200 rounded-lg p-2 w-full text-sm mt-1 bg-stone-50/50"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "12px", color: "#666" }}>Đơn vị</label>
+                    <select
+                      value={rentalUnit}
+                      onChange={(e) => setRentalUnit(e.target.value)}
+                      className="border border-stone-200 rounded-lg p-2 w-full text-sm mt-1 bg-stone-50/50"
+                    >
+                      <option value="hourly">Giờ</option>
+                      <option value="daily">Ngày</option>
+                      <option value="monthly">Tháng</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="planner-field">
+                <div className="planner-field-head"><span>Địa điểm đón xe</span></div>
+                <input
+                  type="text"
+                  placeholder="Vd: Quốc lộ 1A, Bình Thạnh"
+                  value={rentalPickup}
+                  onChange={(e) => setRentalPickup(e.target.value)}
+                  className="border border-stone-200 rounded-xl p-3 bg-stone-50/50 w-full text-sm"
+                />
+              </div>
+
+              <div className="planner-field" style={{ backgroundColor: "#f5f5f5", padding: "12px", borderRadius: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "13px", color: "#666" }}>Giá dự kiến:</span>
+                  <span style={{ fontSize: "16px", fontWeight: "bold", color: "#1e4230" }}>
+                    {calculateRentalPrice(rentalVehicle, rentalDuration, rentalUnit).toLocaleString("vi-VN")} VNĐ
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="planner-field">
             <div className="planner-field-head">
@@ -3810,8 +3908,14 @@ function PlannerV2({ userPlan = null, setUserPlan = null }) {
             />
           </div>
 
-          <button id="planner-btn-submit" onClick={() => handleGenerate(false)} disabled={isGenerating || limitReached} className="btn btn-primary w-full justify-center mt-2">
-            {isGenerating ? "Đang xử lý..." : "Lên lịch trình AI"} <Sparkles size={18} />
+          <button
+            id="planner-btn-submit"
+            onClick={() => handleGenerate(false)}
+            disabled={isGenerating || (transport !== "Thuê xe" ? limitReached : !rentalPickup.trim())}
+            className="btn btn-primary w-full justify-center mt-2"
+          >
+            {isGenerating ? "Đang xử lý..." : transport === "Thuê xe" ? "Đặt xe ngay" : "Lên lịch trình AI"}
+            {transport === "Thuê xe" ? <Car size={18} /> : <Sparkles size={18} />}
           </button>
           {isBasicPlan && !limitReached && (
             <p className="text-xs text-center text-stone-400 mt-2">
