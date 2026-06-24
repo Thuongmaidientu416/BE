@@ -252,7 +252,17 @@ def _make_sqlite(db_path) -> sqlite3.Connection:
 # ── PostgreSQL helpers ──────────────────────────────────────────────
 
 def _make_pg() -> _PGConn:
-    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+    from urllib.parse import urlparse, unquote
+    p = urlparse(DATABASE_URL)
+    conn = psycopg2.connect(
+        host=p.hostname,
+        port=p.port or 5432,
+        dbname=(p.path or "/postgres").lstrip("/"),
+        user=p.username,
+        password=unquote(p.password or ""),
+        sslmode="require",
+        connect_timeout=10,
+    )
     conn.autocommit = False
     return _PGConn(conn)
 
