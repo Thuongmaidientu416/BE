@@ -22,6 +22,7 @@ from routers.auth import get_current_user_id
 from ai.data_engine import get_user_context
 from ai.knowledge_engine import apply_rules
 from ai.recommendation import generate_itinerary, find_commercial_suggestions, find_replacement
+from utils.place_details import fetch_place_details
 
 router = APIRouter(prefix="/api/itinerary", tags=["itinerary"])
 
@@ -242,6 +243,16 @@ def _generate_inner(body: ItineraryGenerateRequest, user_id, conn):
         limit=2,
     )
 
+    # Enrich every stop with truthful OSM detail (cuisine, dishes, amenities, hours, address)
+    detail_map = fetch_place_details(
+        conn,
+        [s["provider_id"] for s in stops_data] + [s["provider_id"] for s in commercial_data],
+    )
+    for s in stops_data:
+        s.update(detail_map.get(s["provider_id"], {}))
+    for s in commercial_data:
+        s.update(detail_map.get(s["provider_id"], {}))
+
     # Build response
     response_stops = [
         ItineraryStop(
@@ -266,6 +277,13 @@ def _generate_inner(body: ItineraryGenerateRequest, user_id, conn):
             score=s.get("score"),
             knn_similarity=s.get("knn_similarity"),
             business_tag=s.get("business_tag"),
+            cuisine=s.get("cuisine"),
+            must_try=s.get("must_try") or [],
+            highlights=s.get("highlights") or [],
+            address=s.get("address"),
+            opening_hours=s.get("opening_hours"),
+            phone=s.get("phone"),
+            website=s.get("website"),
         )
         for s in stops_data
     ]
@@ -292,6 +310,13 @@ def _generate_inner(body: ItineraryGenerateRequest, user_id, conn):
             score=s.get("score"),
             knn_similarity=s.get("knn_similarity"),
             business_tag=s.get("business_tag"),
+            cuisine=s.get("cuisine"),
+            must_try=s.get("must_try") or [],
+            highlights=s.get("highlights") or [],
+            address=s.get("address"),
+            opening_hours=s.get("opening_hours"),
+            phone=s.get("phone"),
+            website=s.get("website"),
         )
         for s in commercial_data
     ]
@@ -362,6 +387,8 @@ def reroute(
     if replacement.get("price_min_vnd") and replacement.get("price_max_vnd"):
         cost = (replacement["price_min_vnd"] + replacement["price_max_vnd"]) // 2
 
+    rdet = fetch_place_details(conn, [replacement["provider_id"]]).get(replacement["provider_id"], {})
+
     new_stop = ItineraryStop(
         step=body.replace_step,
         provider_id=replacement["provider_id"],
@@ -382,6 +409,13 @@ def reroute(
         price_min_vnd=replacement.get("price_min_vnd"),
         price_max_vnd=replacement.get("price_max_vnd"),
         score=replacement.get("ai_base_score"),
+        cuisine=rdet.get("cuisine"),
+        must_try=rdet.get("must_try") or [],
+        highlights=rdet.get("highlights") or [],
+        address=rdet.get("address"),
+        opening_hours=rdet.get("opening_hours"),
+        phone=rdet.get("phone"),
+        website=rdet.get("website"),
     )
 
     # Rebuild stops list

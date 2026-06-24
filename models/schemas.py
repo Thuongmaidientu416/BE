@@ -103,6 +103,13 @@ class ItineraryStop(BaseModel):
     score: Optional[float] = None
     knn_similarity: Optional[float] = None
     business_tag: Optional[str] = None
+    cuisine: Optional[str] = None
+    must_try: list[str] = Field(default_factory=list)
+    highlights: list[str] = Field(default_factory=list)
+    address: Optional[str] = None
+    opening_hours: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
 
 
 class ItineraryResponse(BaseModel):
