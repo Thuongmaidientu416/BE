@@ -3143,31 +3143,49 @@ function JourneyTracker({ rideLegs, transport, totalRideMinutes, itineraryId, se
     <>
       {showToast && (
         <motion.div
-          initial={{ opacity: 0, y: -30, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          style={{
-            position: "fixed",
-            top: "24px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "#1e4230",
-            color: "white",
-            padding: "14px 28px",
-            borderRadius: "14px",
-            boxShadow: "0 8px 32px rgba(30, 66, 48, 0.35)",
-            zIndex: 2000,
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            fontSize: "15px",
-            fontWeight: "bold",
-            whiteSpace: "nowrap"
-          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setShowToast(false)}
         >
-          <Check size={20} />
-          🎉 Lịch trình đã được lên thành công!
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85, y: 30 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            onClick={e => e.stopPropagation()}
+            style={{ backgroundColor: "white", borderRadius: "20px", padding: "36px 40px", maxWidth: "420px", width: "90%", boxShadow: "0 24px 60px rgba(0,0,0,0.25)", textAlign: "center" }}
+          >
+            <div style={{ width: "64px", height: "64px", borderRadius: "50%", backgroundColor: "#e8f5e9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <Check size={30} color="#1e4230" />
+            </div>
+            <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#1e4230", marginBottom: "8px" }}>🎉 Đặt xe thành công!</h3>
+            <p style={{ fontSize: "15px", color: "#555", marginBottom: "20px", lineHeight: "1.5" }}>Lịch trình của bạn đã được lên thành công. Tài xế đang trên đường đến.</p>
+            {bookedDriver && (
+              <div style={{ backgroundColor: "#f8faf8", borderRadius: "12px", padding: "14px 18px", marginBottom: "20px", textAlign: "left" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "13px", color: "#888" }}>Tài xế</span>
+                  <span style={{ fontSize: "13px", fontWeight: "700", color: "#1e4230" }}>{bookedDriver.name} · ⭐ {bookedDriver.rating}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "13px", color: "#888" }}>Biển số</span>
+                  <span style={{ fontSize: "13px", fontWeight: "700" }}>{bookedDriver.plate}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: "13px", color: "#888" }}>ETA</span>
+                  <span style={{ fontSize: "13px", fontWeight: "700", color: "#c96420" }}>~{bookedDriver.eta_minutes} phút</span>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => setShowToast(false)}
+              style={{ width: "100%", padding: "13px", backgroundColor: "#1e4230", color: "white", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: "700", cursor: "pointer" }}
+            >
+              Đã hiểu, xem lịch trình
+            </button>
+          </motion.div>
         </motion.div>
       )}
 
