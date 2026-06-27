@@ -143,7 +143,8 @@ def build_chat_system_data(
             v.price_min_vnd,
             v.price_max_vnd,
             v.wanderhub_score,
-            v.description
+            v.description,
+            v.ai_base_score
         FROM v_recommendation_base v
         LEFT JOIN provider_moods pm ON pm.provider_id = v.provider_id
         LEFT JOIN moods m ON m.id = pm.mood_id
