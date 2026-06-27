@@ -3,7 +3,7 @@ WanderHUB Backend — Providers Router (List / Featured / Detail)
 """
 
 from __future__ import annotations
-import sqlite3
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from database import get_db_dependency
@@ -22,7 +22,7 @@ def list_providers(
     sort: str = Query("score", description="Sort: score, price, name"),
     limit: int = Query(30, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     """List providers with filtering, sorting and pagination."""
     conditions = []
@@ -97,7 +97,7 @@ def list_providers(
 
 
 @router.get("/featured")
-def featured_providers(conn: sqlite3.Connection = Depends(get_db_dependency)):
+def featured_providers(conn: Any = Depends(get_db_dependency)):
     """Get top provider per category (6 total)."""
     categories = ["cafe_drink", "food", "checkin", "culture", "nightlife", "entertainment"]
     featured = []
@@ -133,7 +133,7 @@ def featured_providers(conn: sqlite3.Connection = Depends(get_db_dependency)):
 
 
 @router.get("/{provider_id}", response_model=ProviderDetail)
-def get_provider(provider_id: int, conn: sqlite3.Connection = Depends(get_db_dependency)):
+def get_provider(provider_id: int, conn: Any = Depends(get_db_dependency)):
     """Get detailed provider info including SQUAD scores and mood tags."""
     row = conn.execute(
         """

@@ -3,7 +3,7 @@ WanderHUB Backend — Chat Router (AI Chatbot Proxy)
 """
 
 from __future__ import annotations
-import sqlite3
+from typing import Any
 from fastapi import APIRouter, Depends
 
 from database import get_db_dependency
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 @router.post("", response_model=ChatResponse)
 async def chat(
     body: ChatRequest,
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     """
     AI Chatbot endpoint.

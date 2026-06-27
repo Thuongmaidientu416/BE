@@ -3,7 +3,7 @@ WanderHUB Backend — Landing Page Router
 """
 
 from __future__ import annotations
-import sqlite3
+from typing import Any
 from fastapi import APIRouter, Depends
 
 from database import get_db_dependency
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/landing", tags=["landing"])
 
 
 @router.get("", response_model=LandingResponse)
-def get_landing(conn: sqlite3.Connection = Depends(get_db_dependency)):
+def get_landing(conn: Any = Depends(get_db_dependency)):
     """Return all data needed for the Home page hero + stats sections."""
 
     # Hero content

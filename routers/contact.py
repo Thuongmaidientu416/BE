@@ -3,7 +3,7 @@ WanderHUB Backend — Contact Router
 """
 
 from __future__ import annotations
-import sqlite3
+from typing import Any
 from fastapi import APIRouter, Depends
 
 from database import get_db_dependency
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/contact", tags=["contact"])
 @router.post("", response_model=ContactResponse)
 def submit_contact(
     body: ContactRequest,
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     """Save a contact form submission to the database."""
     conn.execute(

@@ -33,7 +33,10 @@ async def cors_middleware(request: Request, call_next):
     origin = request.headers.get("origin", "*")
     if request.method == "OPTIONS":
         return Response(status_code=200, headers={**_CORS_HEADERS, "Access-Control-Allow-Origin": origin})
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        response = Response(status_code=500, content="Internal Server Error")
     response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Methods"] = _CORS_HEADERS["Access-Control-Allow-Methods"]
     return response

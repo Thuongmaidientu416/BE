@@ -43,7 +43,7 @@ def _fetch_user_affinity(conn: sqlite3.Connection, user_id: int | None) -> tuple
             """,
             (user_id,),
         ).fetchall()
-    except sqlite3.OperationalError:
+    except Exception:
         return {}, {}
 
     provider_boosts = {
@@ -60,16 +60,19 @@ def _fetch_user_affinity(conn: sqlite3.Connection, user_id: int | None) -> tuple
 def _fetch_exposure_penalties(conn: sqlite3.Connection) -> dict[int, float]:
     """Penalize providers that have appeared too often in recent recommendations."""
     try:
+        from datetime import datetime, timezone, timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
         rows = conn.execute(
             """
             SELECT provider_id, COUNT(*) AS exposure_count
             FROM recommendation_logs
             WHERE provider_id IS NOT NULL
-              AND created_at >= datetime('now', '-14 days')
+              AND created_at >= ?
             GROUP BY provider_id
-            """
+            """,
+            (cutoff,)
         ).fetchall()
-    except sqlite3.OperationalError:
+    except Exception:
         return {}
 
     return {
@@ -296,8 +299,8 @@ def generate_itinerary(
             if prev_lat is not None and c["latitude"] and c["longitude"]:
                 dist_km = haversine_km(prev_lat, prev_lon, c["latitude"], c["longitude"])
 
-            price_max = c["price_max_vnd"] or 0
-            base_score = c["ai_base_score"] or 50
+            price_max = float(c["price_max_vnd"] or 0)
+            base_score = float(c["ai_base_score"] or 50)
 
             # Apply category boost
             boost = category_boosts.get(c["category_code"], 0)
@@ -318,7 +321,7 @@ def generate_itinerary(
             knn_score = knn_similarity_score(c, intent_vector)
             c["knn_similarity"] = knn_score
             quality_score = adjusted_base
-            score = round((score * 0.40) + (knn_score * 0.45) + (quality_score * 0.15), 2)
+            score = round((score * 0.40) + (float(knn_score) * 0.45) + (float(quality_score) * 0.15), 2)
             scored.append((score, dist_km, c))
 
         # Select a balanced near-top candidate instead of always taking the same top-1.
@@ -333,11 +336,11 @@ def generate_itinerary(
         arrival_h = (arrival_min // 60) % 24
         arrival_m = arrival_min % 60
 
-        duration = best["avg_duration_min"] or 60
-        cost = best["price_max_vnd"] or 0
+        duration = int(best["avg_duration_min"] or 60)
+        cost = int(best["price_max_vnd"] or 0)
         # Use midpoint of price range as estimate
         if best["price_min_vnd"] and best["price_max_vnd"]:
-            cost = (best["price_min_vnd"] + best["price_max_vnd"]) // 2
+            cost = (int(best["price_min_vnd"]) + int(best["price_max_vnd"])) // 2
 
         # Generate reason
         reason = _generate_reason(best, context, rules, best_score)
@@ -452,10 +455,10 @@ def find_commercial_suggestions(
     for row in rows:
         row["commercial_priority"] = True
         knn_score = knn_similarity_score(row, intent_vector)
-        deal_score = (row.get("deal_viability") or 3) * 20
+        deal_score = float(row.get("deal_viability") or 3) * 20
         district_bonus = 8 if row.get("district_match") else 0
         category_bonus = 5 if row.get("category_match") else 0
-        score = round(knn_score * 0.55 + deal_score * 0.25 + (row.get("ai_base_score") or 50) * 0.15 + district_bonus + category_bonus, 2)
+        score = round(knn_score * 0.55 + deal_score * 0.25 + float(row.get("ai_base_score") or 50) * 0.15 + district_bonus + category_bonus, 2)
         row["knn_similarity"] = knn_score
         row["score"] = min(score, 99.0)
         scored.append((score, row))

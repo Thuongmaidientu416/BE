@@ -5,9 +5,9 @@ Tracks recommendation behavior such as hover, click, choose and reroute events.
 """
 
 from __future__ import annotations
+from typing import Any
 
 import json
-import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -32,7 +32,7 @@ EVENT_WEIGHTS = {
 def track_interaction(
     body: InteractionRequest,
     user_id: int | None = Depends(get_current_user_id),
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     """Persist a customer interaction so recommendations can improve later."""
     if body.provider_id is None and body.event_type not in {"view", "reroute"}:

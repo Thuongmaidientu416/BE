@@ -22,7 +22,7 @@ def calculate_recommendation_score(
       - diversity:        10%  (bonus if different category from previous stop)
     """
     # Normalize ai_base_score to 0-100 range (it's already roughly 0-100)
-    base = ai_base_score * 0.4
+    base = float(ai_base_score) * 0.4
 
     # Mood match: +25 if matched
     mood_bonus = 25.0 if mood_match else 0.0

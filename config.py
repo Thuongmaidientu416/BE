@@ -11,6 +11,9 @@ PROJECT_ROOT = BASE_DIR
 SEED_DB_PATH = PROJECT_ROOT / "wanderhub.db"
 DB_PATH = Path("/tmp/wanderhub.db") if (os.getenv("VERCEL") or os.getenv("RENDER")) else SEED_DB_PATH
 
+# ── PostgreSQL (Supabase) ──────────────────────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
 # ── Auth ───────────────────────────────────────────────────────────
 JWT_SECRET = os.getenv("WANDERHUB_JWT_SECRET", "wanderhub-dev-secret-change-in-prod")
 JWT_ALGORITHM = "HS256"
@@ -23,12 +26,13 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # ── CORS ──────────────────────────────────────────────────────────
 CORS_ORIGINS = [
-    "http://localhost:5173",   # Vite dev
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:4173",   # Vite preview
+    "http://localhost:4173",
     "http://127.0.0.1:4173",
+    "https://wanderhub416tmdt.vercel.app",
 ]
 
 # ── AI Recommendation defaults ────────────────────────────────────

@@ -3,10 +3,12 @@ WanderHUB Backend — Itinerary Router (AI Custom Tour Generation)
 """
 
 from __future__ import annotations
+from typing import Any
 import json
 import random
-import sqlite3
+import traceback
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 
 from database import get_db_dependency
 from models.schemas import (
@@ -43,11 +45,11 @@ def _format_duration(minutes: int) -> str:
     return f"{h}h {m:02d}m"
 
 
-@router.post("/generate", response_model=ItineraryResponse)
+@router.post("/generate")
 def generate(
     body: ItineraryGenerateRequest,
     user_id: int | None = Depends(get_current_user_id),
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     """
     Core AI endpoint: Generate a custom tour itinerary.
@@ -57,6 +59,17 @@ def generate(
       Layer 2 (Knowledge Engine) → apply business rules
       Layer 3 (Recommendation Engine) → score & build itinerary
     """
+    try:
+        return _generate_inner(body, user_id, conn)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[GENERATE ERROR] {type(e).__name__}: {e}")
+        print(traceback.format_exc())
+        return JSONResponse(status_code=500, content={"detail": f"{type(e).__name__}: {str(e)}"})
+
+
+def _generate_inner(body: ItineraryGenerateRequest, user_id, conn):
     # Enforce Basic plan limit: 1 itinerary per 20 days (skip for auto-generated previews)
     if user_id and not body.is_auto_generate:
         plan_row = conn.execute(
@@ -65,14 +78,15 @@ def generate(
         ).fetchone()
         if plan_row and plan_row["plan_key"] == "basic":
             from datetime import datetime, timezone, timedelta
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=20)).isoformat()
             last_row = conn.execute(
                 """
                 SELECT created_at FROM itineraries
                 WHERE user_id = ?
-                  AND datetime(created_at) > datetime('now', '-20 days')
+                  AND created_at > ?
                 ORDER BY created_at DESC LIMIT 1
                 """,
-                (user_id,),
+                (user_id, cutoff),
             ).fetchone()
             if last_row:
                 last_dt = datetime.fromisoformat(last_row["created_at"])
@@ -323,7 +337,7 @@ def generate(
 @router.post("/reroute", response_model=ItineraryResponse)
 def reroute(
     body: RerouteRequest,
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     """Replace one stop in an itinerary with a similar alternative."""
     if not body.stops:
@@ -373,6 +387,8 @@ def reroute(
     if replacement.get("price_min_vnd") and replacement.get("price_max_vnd"):
         cost = (replacement["price_min_vnd"] + replacement["price_max_vnd"]) // 2
 
+    rdet = fetch_place_details(conn, [replacement["provider_id"]]).get(replacement["provider_id"], {})
+
     new_stop = ItineraryStop(
         step=body.replace_step,
         provider_id=replacement["provider_id"],
@@ -393,6 +409,13 @@ def reroute(
         price_min_vnd=replacement.get("price_min_vnd"),
         price_max_vnd=replacement.get("price_max_vnd"),
         score=replacement.get("ai_base_score"),
+        cuisine=rdet.get("cuisine"),
+        must_try=rdet.get("must_try") or [],
+        highlights=rdet.get("highlights") or [],
+        address=rdet.get("address"),
+        opening_hours=rdet.get("opening_hours"),
+        phone=rdet.get("phone"),
+        website=rdet.get("website"),
     )
 
     # Rebuild stops list
@@ -416,7 +439,7 @@ def reroute(
 @router.get("/{itinerary_id}")
 def get_itinerary(
     itinerary_id: int,
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     """Retrieve a saved itinerary."""
     row = conn.execute(
@@ -475,7 +498,7 @@ def submit_feedback(
     itinerary_id: int,
     body: FeedbackRequest,
     user_id: int = Depends(get_current_user_id),
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     """Submit user feedback for an itinerary."""
     conn.execute(

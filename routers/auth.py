@@ -3,7 +3,7 @@ WanderHUB Backend — Auth Router (Register / Login / Me)
 """
 
 from __future__ import annotations
-import sqlite3
+from typing import Any
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -74,7 +74,7 @@ def require_auth(
 
 
 @router.post("/register")
-def register(body: RegisterRequest, conn: sqlite3.Connection = Depends(get_db_dependency)):
+def register(body: RegisterRequest, conn: Any = Depends(get_db_dependency)):
     # Check if email already exists
     existing = conn.execute("SELECT id FROM users WHERE email = ?", (body.email,)).fetchone()
     if existing:
@@ -96,7 +96,7 @@ def register(body: RegisterRequest, conn: sqlite3.Connection = Depends(get_db_de
 
 
 @router.post("/login")
-def login(body: LoginRequest, conn: sqlite3.Connection = Depends(get_db_dependency)):
+def login(body: LoginRequest, conn: Any = Depends(get_db_dependency)):
     row = conn.execute(
         "SELECT id, name, email, password_hash, preferences_json, budget_default FROM users WHERE email = ?",
         (body.email,),
@@ -120,7 +120,7 @@ def login(body: LoginRequest, conn: sqlite3.Connection = Depends(get_db_dependen
 @router.get("/me")
 def get_me(
     user_id: int = Depends(require_auth),
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     row = conn.execute(
         "SELECT id, name, email, preferences_json, budget_default FROM users WHERE id = ?",

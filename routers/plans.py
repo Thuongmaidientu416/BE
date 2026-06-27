@@ -3,7 +3,7 @@ WanderHUB Backend — Plans Router (Select / Get current plan)
 """
 
 from __future__ import annotations
-import sqlite3
+from typing import Any
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -22,17 +22,18 @@ PLAN_LIMITS: dict[str, int | None] = {
 PLAN_PERIOD_DAYS = 20  # days between resets for basic
 
 
-def _usage_info(conn: sqlite3.Connection, user_id: int, plan_key: str) -> tuple[int, str | None]:
+def _usage_info(conn: Any, user_id: int, plan_key: str) -> tuple[int, str | None]:
     """Return (usage_count_in_period, period_reset_at_iso or None)."""
     if plan_key == "basic":
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=PLAN_PERIOD_DAYS)).isoformat()
         row = conn.execute(
             """
             SELECT created_at FROM itineraries
             WHERE user_id = ?
-              AND datetime(created_at) > datetime('now', ?)
+              AND created_at > ?
             ORDER BY created_at DESC LIMIT 1
             """,
-            (user_id, f"-{PLAN_PERIOD_DAYS} days"),
+            (user_id, cutoff),
         ).fetchone()
         if row:
             last_dt = datetime.fromisoformat(row["created_at"])
@@ -53,7 +54,7 @@ def _usage_info(conn: sqlite3.Connection, user_id: int, plan_key: str) -> tuple[
 def select_plan(
     body: PlanSelectRequest,
     user_id: int = Depends(require_auth),
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     if body.plan_key not in PLAN_LIMITS:
         raise HTTPException(status_code=400, detail="Gói dịch vụ không hợp lệ.")
@@ -91,7 +92,7 @@ def select_plan(
 @router.get("/me", response_model=PlanResponse)
 def get_my_plan(
     user_id: int = Depends(require_auth),
-    conn: sqlite3.Connection = Depends(get_db_dependency),
+    conn: Any = Depends(get_db_dependency),
 ):
     row = conn.execute(
         "SELECT plan_name, plan_key, selected_at FROM user_plans WHERE user_id = ?",
