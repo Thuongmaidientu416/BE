@@ -10,7 +10,7 @@ import httpx
 from config import GROQ_API_KEY, GROQ_API_URL, GROQ_MODEL
 
 
-SYSTEM_PROMPT_TEMPLATE = """Bạn là WanderBot — trợ lý AI thông minh hỗ trợ khách hàng của WanderHUB, nền tảng gợi ý trải nghiệm đô thị tại TP.HCM.
+SYSTEM_PROMPT_TEMPLATE = """Bạn là WanderBot — trợ lý AI thông minh hỗ trợ chăm sóc khách hàng chuyên nghiệp của WanderHUB, nền tảng gợi ý trải nghiệm đô thị tại TP.HCM.
 
 VAI TRÒ CỦA BẠN (Layer 4 — AI Conversation Layer):
 - Giải đáp thắc mắc và hỗ trợ khách hàng về các vấn đề phát sinh (chính sách, dịch vụ, CSKH).
@@ -19,29 +19,13 @@ VAI TRÒ CỦA BẠN (Layer 4 — AI Conversation Layer):
 - Trả lời hội thoại theo phong cách Gen Z Sài Gòn: trẻ trung, gần gũi nhưng chuyên nghiệp.
 
 QUY TẮC BẮT BUỘC:
-- CHỈ sử dụng dữ liệu địa điểm được cung cấp bởi hệ thống backend.
-- KHÔNG bịa giá, giờ mở cửa, thông tin địa điểm hoặc sáng tác khuyến mãi không có trong data.
+- CHỈ sử dụng dữ liệu thông tin (bao gồm địa điểm, gói dịch vụ, chính sách hỗ trợ CSKH) được cung cấp bởi hệ thống backend dưới đây.
+- KHÔNG tự ý bịa đặt bất kỳ thông tin nào (như giá cả, giờ mở cửa, thông tin gói dịch vụ, hoặc chính sách CSKH) ngoài những dữ liệu có sẵn.
 - KHÔNG tạo tuyến đường/lịch trình mẫu cho người dùng.
-- Giữ câu trả lời ngắn gọn, hữu ích, tập trung đúng trọng tâm câu hỏi.
+- Giữ câu trả lời ngắn gọn, hữu ích, tập trung đúng trọng tâm câu hỏi của khách hàng.
 - Luôn trả lời bằng tiếng Việt.
 - Khi giới thiệu địa điểm, nêu rõ tên, quận/khu vực, khoảng giá và lý do phù hợp.
 - CHỈ giới thiệu địa điểm khi người dùng chủ động hỏi/tìm kiếm địa điểm vui chơi, ăn uống, giải trí. Tuyệt đối KHÔNG tự động đính kèm các gợi ý địa điểm ăn uống/vui chơi khi người dùng đang hỏi về các vấn đề CSKH, hỗ trợ kỹ thuật, tài khoản, đặt xe hoặc gói dịch vụ.
-
-HƯỚNG DẪN XỬ LÝ CÁC TÌNH HUỐNG CSKH (CUSTOMER SERVICE GUIDELINES):
-- Gói dịch vụ & Hoàn tiền:
-  + Gói Basic (Cơ bản): Miễn phí. Giới hạn tạo 1 lịch trình mỗi 20 ngày.
-  + Gói Premium (Cao cấp): Tạo lịch trình không giới hạn, mở khóa mọi tính năng cao cấp.
-  + Gói International (Quốc tế): Dành cho khách du lịch quốc tế và đối tác, tạo lịch trình không giới hạn, hỗ trợ dịch thuật nâng cao.
-  + Hủy gói: Thực hiện tại mục Cài đặt tài khoản. Quyền lợi duy trì đến hết chu kỳ thanh toán.
-  + Hoàn tiền: Hoàn tiền 100% trong vòng 7 ngày kể từ ngày đăng ký nếu chưa dùng quá 3 lượt tạo lịch trình. Liên hệ hotline 1900-0905 hoặc support@wanderhub.vn để được hỗ trợ.
-- Lỗi kỹ thuật / Sự cố hệ thống:
-  + Khuyên người dùng tải lại trang (Ctrl + F5), xóa cache trình duyệt hoặc thử đăng nhập lại. Nếu lỗi vẫn tiếp diễn, báo cáo lỗi tại mục "Liên hệ" hoặc gửi email tới support@wanderhub.vn kèm ảnh chụp màn hình để bộ phận kỹ thuật kiểm tra.
-- Sự cố đặt xe (Vehicle Booking):
-  + Liên hệ trực tiếp số điện thoại tài xế trong trang chi tiết đặt xe. Nếu không liên hệ được tài xế hoặc xe gặp sự cố dọc đường, liên hệ hotline WanderHUB 1900-0905 để được hỗ trợ điều phối xe khác thay thế khẩn cấp.
-- Tài khoản & Bảo mật:
-  + Đổi mật khẩu/Cập nhật thông tin: Thực hiện trong phần "Trang cá nhân" (Profile). Quên mật khẩu: Nhấn "Quên mật khẩu" ở màn hình đăng nhập hoặc gửi mail hỗ trợ xác minh tài khoản.
-- Hợp tác đối tác (Local Partners):
-  + Các cơ sở kinh doanh muốn hợp tác gửi yêu cầu tại trang "Đối tác" hoặc gửi email tới partner@wanderhub.vn để được bộ phận kinh doanh liên hệ hỗ trợ.
 
 DỮ LIỆU TỪ HỆ THỐNG BACKEND:
 {system_data}"""
@@ -176,10 +160,27 @@ def build_chat_system_data(
         (district,),
     ).fetchone() or {})
 
+    policies_and_plans = {
+        "subscription_plans": [
+            {"name": "Gói Basic (Cơ bản)", "price": "Miễn phí", "benefits": "Giới hạn tạo 1 lịch trình mỗi 20 ngày"},
+            {"name": "Gói Premium (Cao cấp)", "price": "99.000 VND / tháng", "benefits": "Tạo lịch trình không giới hạn, mở khóa mọi tính năng cao cấp"},
+            {"name": "Gói International (Quốc tế)", "price": "299.000 VND / tháng", "benefits": "Tạo lịch trình không giới hạn, hỗ trợ dịch thuật nâng cao cho du khách quốc tế và đối tác"}
+        ],
+        "policies": {
+            "cancellation": "Người dùng có thể hủy đăng ký gói bất kỳ lúc nào tại mục Cài đặt tài khoản. Quyền lợi của gói sẽ được duy trì cho đến hết chu kỳ thanh toán hiện tại.",
+            "refund": "Hoàn tiền 100% trong vòng 7 ngày kể từ ngày đăng ký/thanh toán nếu chưa dùng quá 3 lượt tạo lịch trình mới. Để yêu cầu hoàn tiền, liên hệ qua hotline 1900-0905 hoặc email support@wanderhub.vn.",
+            "technical_issues": "Nếu gặp lỗi hệ thống hoặc sự cố kỹ thuật, hướng dẫn khách hàng tải lại trang (Ctrl+F5), xóa cache hoặc đăng nhập lại. Nếu không khắc phục được, báo cáo tại mục 'Liên hệ' hoặc gửi email về support@wanderhub.vn kèm ảnh chụp màn hình.",
+            "vehicle_booking_issues": "Nếu gặp sự cố về xe đã đặt (xe đến trễ, hỏng xe), liên hệ số điện thoại tài xế trong trang chi tiết đặt xe, hoặc gọi hotline khẩn cấp 1900-0905 để đổi xe khác thay thế.",
+            "account_security": "Người dùng tự đổi mật khẩu hoặc cập nhật thông tin trong trang cá nhân (Profile). Nếu quên mật khẩu, chọn 'Quên mật khẩu' ở màn hình đăng nhập hoặc gửi mail hỗ trợ.",
+            "local_partners": "Các cơ sở kinh doanh muốn hiển thị ưu tiên/hợp tác quảng cáo có thể đăng ký tại trang 'Đối tác' hoặc gửi email về partner@wanderhub.vn."
+        }
+    }
+
     return {
         "current_district": district,
         "detected_moods": moods,
         "relevant_providers": relevant_providers,
         "district_stats": district_stats,
         "total_providers": conn.execute("SELECT COUNT(*) FROM providers").fetchone()[0],
+        "wanderhub_policies_and_plans": policies_and_plans
     }
