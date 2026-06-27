@@ -1,3 +1,4 @@
+// WanderHUB - Entrypoint (Redeploy trigger)
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import L from "leaflet";
