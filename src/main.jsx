@@ -1437,9 +1437,9 @@ function FloatingChatBot() {
                   <Bot size={16} className="text-white" />
                 </div>
                 <div>
-                  <div className="wb-title">WanderBot {groqKey ? "(Groq Live)" : "(Mock)"}</div>
+                  <div className="wb-title">WanderBot AI</div>
                   <div className="wb-status">
-                    <span className="wb-dot" />Hỗ trợ khách hàng
+                    <span className="wb-dot" />Đang hoạt động
                   </div>
                 </div>
               </div>
