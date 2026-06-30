@@ -280,7 +280,161 @@ def _make_pg() -> _PGConn:
 
 def init_db() -> None:
     if _USE_PG:
-        print("[DB] Using PostgreSQL (Supabase) — schema managed via migration SQL")
+        print("[DB] Using PostgreSQL (Supabase/Render) — performing auto-migrations")
+        conn = _make_pg()
+        try:
+            # 1. Alter users table to add role, preferences_json, budget_default if missing
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'user'")
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN preferences_json TEXT")
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+            try:
+                conn.execute("ALTER TABLE users ADD COLUMN budget_default INTEGER")
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+            # 2. Create contacts table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS contacts (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    email VARCHAR(255) NOT NULL,
+                    subject VARCHAR(255),
+                    message TEXT NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # 3. Create itinerary_feedback table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS itinerary_feedback (
+                    id SERIAL PRIMARY KEY,
+                    itinerary_id INTEGER,
+                    user_id INTEGER,
+                    rating INTEGER CHECK(rating BETWEEN 1 AND 5),
+                    comment TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # 4. Create user_plans table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_plans (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL UNIQUE,
+                    plan_name VARCHAR(100) NOT NULL,
+                    plan_key VARCHAR(100) NOT NULL,
+                    selected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # 5. Create vehicle_fleet table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS vehicle_fleet (
+                    id SERIAL PRIMARY KEY,
+                    vehicle_type VARCHAR(100) NOT NULL UNIQUE,
+                    label VARCHAR(255) NOT NULL,
+                    total_count INTEGER NOT NULL,
+                    available_count INTEGER NOT NULL CHECK(available_count >= 0),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # 6. Create vehicle_images table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS vehicle_images (
+                    id SERIAL PRIMARY KEY,
+                    vehicle_type VARCHAR(100) NOT NULL UNIQUE,
+                    image_url TEXT NOT NULL,
+                    description TEXT,
+                    features TEXT,
+                    capacity VARCHAR(100),
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # 7. Create vehicle_bookings table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS vehicle_bookings (
+                    id SERIAL PRIMARY KEY,
+                    vehicle_type VARCHAR(100) NOT NULL,
+                    user_id INTEGER,
+                    itinerary_id INTEGER,
+                    driver_name VARCHAR(255) NOT NULL,
+                    driver_rating REAL NOT NULL,
+                    plate_number VARCHAR(100) NOT NULL,
+                    eta_minutes INTEGER NOT NULL,
+                    status VARCHAR(100) DEFAULT 'active',
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.commit()
+
+            # 8. Seed admin user
+            admin = conn.execute("SELECT id FROM users WHERE role = 'admin' OR email = 'admin@wanderhub.vn'").fetchone()
+            if not admin:
+                import hashlib
+                import secrets
+                salt = secrets.token_hex(16)
+                digest = hashlib.pbkdf2_hmac("sha256", b"admin123", salt.encode("utf-8"), 120_000)
+                password_hash = f"pbkdf2_sha256$120000${salt}${digest.hex()}"
+                conn.execute(
+                    "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
+                    ("Wanderhub Admin", "admin@wanderhub.vn", password_hash, "admin")
+                )
+                conn.commit()
+                print("[DB] PostgreSQL: Admin user seeded successfully.")
+
+            # 9. Seed vehicle fleet
+            fleet_count = conn.execute("SELECT COUNT(*) AS cnt FROM vehicle_fleet").fetchone()["cnt"]
+            if fleet_count == 0:
+                conn.executemany(
+                    "INSERT INTO vehicle_fleet (vehicle_type, label, total_count, available_count) VALUES (?, ?, ?, ?)",
+                    [
+                        ("motorbike", "Xe máy WanderHUB", 50, 50),
+                        ("car7",      "Xe 7 chỗ WanderHUB", 20, 20),
+                    ]
+                )
+                conn.commit()
+
+            # 10. Seed vehicle images
+            image_count = conn.execute("SELECT COUNT(*) AS cnt FROM vehicle_images").fetchone()["cnt"]
+            if image_count == 0:
+                conn.executemany(
+                    "INSERT INTO vehicle_images (vehicle_type, image_url, description, features, capacity) VALUES (?, ?, ?, ?, ?)",
+                    [
+                        (
+                            "motorbike",
+                            "https://images.unsplash.com/photo-1593618998160-e34014e67546?w=600&h=400&fit=crop",
+                            "Xe máy WanderHUB - Di động, nhanh gọn, phù hợp cho 1-2 người",
+                            "Bình xăng lớn, phanh ABS, đèn LED, bảo hiểm đầy đủ",
+                            "1-2 người"
+                        ),
+                        (
+                            "car7",
+                            "https://images.unsplash.com/photo-1464207687429-7505649dae38?w=600&h=400&fit=crop",
+                            "Xe 7 chỗ WanderHUB - Rộng rãi, thoải mái, tuyệt vời cho nhóm",
+                            "Điều hòa 2 vùng, ghế gập linh hoạt, cửa trượt tự động, WiFi 4G",
+                            "5-7 người"
+                        ),
+                    ]
+                )
+                conn.commit()
+            print("[DB] PostgreSQL auto-migrations completed.")
+        except Exception as e:
+            conn.rollback()
+            print(f"[DB] PostgreSQL auto-migration failed: {str(e)}")
+        finally:
+            conn.close()
         return
 
     conn = _make_sqlite(DB_PATH)
