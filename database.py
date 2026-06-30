@@ -429,6 +429,23 @@ def init_db() -> None:
                     ]
                 )
                 conn.commit()
+
+            # Seed mock vehicle bookings
+            booking_count = conn.execute("SELECT COUNT(*) AS cnt FROM vehicle_bookings").fetchone()["cnt"]
+            if booking_count == 0:
+                user_row = conn.execute("SELECT id FROM users LIMIT 1").fetchone()
+                user_id = user_row["id"] if user_row else None
+                conn.executemany(
+                    "INSERT INTO vehicle_bookings (vehicle_type, user_id, driver_name, driver_rating, plate_number, eta_minutes, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        ("motorbike", user_id, "Nguyễn Văn A", 4.9, "29A-123.45", 5, "completed"),
+                        ("car7",      user_id, "Trần Văn B",   4.8, "30B-678.90", 8, "completed"),
+                        ("motorbike", user_id, "Lê Văn C",     4.7, "29H-543.21", 4, "completed"),
+                        ("car7",      user_id, "Phạm Văn D",   5.0, "51A-999.99", 10, "active"),
+                        ("motorbike", user_id, "Hoàng Văn E",   4.6, "43A-111.11", 6, "completed"),
+                    ]
+                )
+                conn.commit()
             print("[DB] PostgreSQL auto-migrations completed.")
         except Exception as e:
             conn.rollback()
@@ -488,8 +505,24 @@ def init_db() -> None:
                         "Điều hòa 2 vùng, ghế gập linh hoạt, cửa trượt tự động, WiFi 4G",
                         "5-7 người"
                     ),
-                ],
             )
+        
+        # Seed mock vehicle bookings for SQLite
+        booking_count = conn.execute("SELECT COUNT(*) AS cnt FROM vehicle_bookings").fetchone()["cnt"]
+        if booking_count == 0:
+            user_row = conn.execute("SELECT id FROM users LIMIT 1").fetchone()
+            user_id = user_row["id"] if user_row else None
+            conn.executemany(
+                "INSERT INTO vehicle_bookings (vehicle_type, user_id, driver_name, driver_rating, plate_number, eta_minutes, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("motorbike", user_id, "Nguyễn Văn A", 4.9, "29A-123.45", 5, "completed"),
+                    ("car7",      user_id, "Trần Văn B",   4.8, "30B-678.90", 8, "completed"),
+                    ("motorbike", user_id, "Lê Văn C",     4.7, "29H-543.21", 4, "completed"),
+                    ("car7",      user_id, "Phạm Văn D",   5.0, "51A-999.99", 10, "active"),
+                    ("motorbike", user_id, "Hoàng Văn E",   4.6, "43A-111.11", 6, "completed"),
+                ]
+            )
+            conn.commit()
         conn.commit()
     finally:
         conn.close()
