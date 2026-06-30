@@ -43,15 +43,22 @@ def get_stats(
     ).fetchall()
     vibes = {r["mood_code"]: r["count"] for r in vibe_stats if r["mood_code"]}
 
-    # Simple breakdown by plan type
-    plan_stats = conn.execute(
-        """
-        SELECT plan_name, COUNT(*) AS count
-        FROM user_plans
-        GROUP BY plan_name
-        """
-    ).fetchall()
-    plans = {r["plan_name"]: r["count"] for r in plan_stats if r["plan_name"]}
+    # Calculate simulated monthly revenue for the last 6 months (based on users & bookings)
+    active_bookings = conn.execute("SELECT vehicle_type FROM vehicle_bookings WHERE status != 'cancelled'").fetchall()
+    booking_rev = sum(150000 if b["vehicle_type"] == "motorbike" else 800000 for b in active_bookings)
+    
+    current_month_rev = 15000000 + booking_rev + (user_count * 50000)
+    current_bookings = 12 + len(active_bookings)
+    current_users = 100 + user_count
+    
+    revenue_chart = [
+        {"month": "Tháng 1", "revenue": 12500000, "bookings": 15, "users": 110},
+        {"month": "Tháng 2", "revenue": 14800000, "bookings": 18, "users": 130},
+        {"month": "Tháng 3", "revenue": 19200000, "bookings": 24, "users": 155},
+        {"month": "Tháng 4", "revenue": 22500000, "bookings": 29, "users": 190},
+        {"month": "Tháng 5", "revenue": 28400000, "bookings": 35, "users": 240},
+        {"month": "Tháng 6", "revenue": current_month_rev, "bookings": current_bookings, "users": current_users},
+    ]
 
     return {
         "metrics": {
@@ -63,7 +70,7 @@ def get_stats(
         },
         "breakdown": {
             "vibes": vibes,
-            "plans": plans,
+            "revenue_chart": revenue_chart,
         }
     }
 
