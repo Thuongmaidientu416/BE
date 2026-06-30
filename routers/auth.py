@@ -98,7 +98,7 @@ def register(body: RegisterRequest, conn: Any = Depends(get_db_dependency)):
 @router.post("/login")
 def login(body: LoginRequest, conn: Any = Depends(get_db_dependency)):
     row = conn.execute(
-        "SELECT id, name, email, password_hash, preferences_json, budget_default FROM users WHERE email = ?",
+        "SELECT id, name, email, password_hash, role, preferences_json, budget_default FROM users WHERE email = ?",
         (body.email,),
     ).fetchone()
     if not row or not _verify_password(body.password, row["password_hash"]):
@@ -111,6 +111,7 @@ def login(body: LoginRequest, conn: Any = Depends(get_db_dependency)):
             id=row["id"],
             name=row["name"],
             email=row["email"],
+            role=row["role"],
             preferences_json=row["preferences_json"],
             budget_default=row["budget_default"],
         ),
@@ -123,7 +124,7 @@ def get_me(
     conn: Any = Depends(get_db_dependency),
 ):
     row = conn.execute(
-        "SELECT id, name, email, preferences_json, budget_default FROM users WHERE id = ?",
+        "SELECT id, name, email, role, preferences_json, budget_default FROM users WHERE id = ?",
         (user_id,),
     ).fetchone()
     if not row:

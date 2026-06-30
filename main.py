@@ -12,7 +12,7 @@ from fastapi.responses import Response
 
 from config import CORS_ORIGINS
 from database import init_db
-from routers import auth, providers, landing, itinerary, chat, contact, interactions, plans, vehicles
+from routers import auth, providers, landing, itinerary, chat, contact, interactions, plans, vehicles, admin
 
 # ── Create app ────────────────────────────────────────────────────
 app = FastAPI(
@@ -35,8 +35,10 @@ async def cors_middleware(request: Request, call_next):
         return Response(status_code=200, headers={**_CORS_HEADERS, "Access-Control-Allow-Origin": origin})
     try:
         response = await call_next(request)
-    except Exception:
-        response = Response(status_code=500, content="Internal Server Error")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        response = Response(status_code=500, content=f"Internal Server Error: {str(e)}")
     response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Methods"] = _CORS_HEADERS["Access-Control-Allow-Methods"]
     return response
@@ -51,6 +53,7 @@ app.include_router(contact.router)
 app.include_router(interactions.router)
 app.include_router(plans.router)
 app.include_router(vehicles.router)
+app.include_router(admin.router)
 
 
 # ── Startup ──────────────────────────────────────────────────────

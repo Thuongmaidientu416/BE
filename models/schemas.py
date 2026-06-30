@@ -29,6 +29,7 @@ class UserProfile(BaseModel):
     id: int
     name: str
     email: str
+    role: str = "user"
     preferences_json: Optional[str] = None
     budget_default: Optional[int] = None
 

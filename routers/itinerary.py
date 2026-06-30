@@ -436,12 +436,455 @@ def reroute(
     )
 
 
+@router.get("/history/me")
+def get_my_history(
+    user_id: int = Depends(get_current_user_id),
+    conn: Any = Depends(get_db_dependency),
+):
+    """Retrieve saved itineraries for the current logged-in user."""
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Bạn chưa đăng nhập.")
+        
+    rows = conn.execute(
+        """
+        SELECT id, title, mood_code, district_preference,
+               total_cost_estimated, total_duration_min, transport_mode, created_at
+        FROM itineraries
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        """,
+        (user_id,),
+    ).fetchall()
+
+    result = []
+    for r in rows:
+        itinerary_id = r["id"]
+        stops = conn.execute(
+            """
+            SELECT s.step_order AS step, p.name AS title, d.name AS district, c.name AS category,
+                   s.arrival_time, s.duration_min, s.cost_estimated, s.reason, pm.image_url,
+                   p.latitude, p.longitude, p.id as provider_id
+            FROM itinerary_stops s
+            JOIN providers p ON p.id = s.provider_id
+            JOIN districts d ON d.id = p.district_id
+            JOIN categories c ON c.id = p.category_id
+            LEFT JOIN provider_media pm ON pm.provider_id = p.id AND pm.is_primary = 1
+            WHERE s.itinerary_id = ?
+            ORDER BY s.step_order
+            """,
+            (itinerary_id,),
+        ).fetchall()
+        
+        item = dict(r)
+        item["stops"] = [dict(s) for s in stops]
+        item["total_cost"] = _format_cost(r["total_cost_estimated"])
+        item["total_duration"] = _format_duration(r["total_duration_min"])
+        result.append(item)
+    return result
+
+
+@router.get("/popular")
+def get_popular_itineraries(
+    conn: Any = Depends(get_db_dependency),
+):
+    """Retrieve popular itineraries or return curated ones if database is empty."""
+    rows = conn.execute(
+        """
+        SELECT i.id, i.title, i.mood_code, i.district_preference,
+               i.total_cost_estimated, i.total_duration_min, i.transport_mode, i.created_at,
+               COUNT(ui.id) as select_count
+        FROM itineraries i
+        LEFT JOIN user_interactions ui ON ui.itinerary_id = i.id AND ui.event_type IN ('choose', 'save')
+        GROUP BY i.id
+        ORDER BY select_count DESC, i.created_at DESC
+        LIMIT 4
+        """
+    ).fetchall()
+
+    result = []
+    for r in rows:
+        if r["id"] is None:
+            continue
+        itinerary_id = r["id"]
+        stops = conn.execute(
+            """
+            SELECT s.step_order AS step, p.name AS title, d.name AS district, c.name AS category,
+                   s.arrival_time, s.duration_min, s.cost_estimated, s.reason, pm.image_url,
+                   p.latitude, p.longitude, p.id as provider_id
+            FROM itinerary_stops s
+            JOIN providers p ON p.id = s.provider_id
+            JOIN districts d ON d.id = p.district_id
+            JOIN categories c ON c.id = p.category_id
+            LEFT JOIN provider_media pm ON pm.provider_id = p.id AND pm.is_primary = 1
+            WHERE s.itinerary_id = ?
+            ORDER BY s.step_order
+            """,
+            (itinerary_id,),
+        ).fetchall()
+        
+        item = dict(r)
+        item["stops"] = [dict(s) for s in stops]
+        item["total_cost"] = _format_cost(r["total_cost_estimated"])
+        item["total_duration"] = _format_duration(r["total_duration_min"])
+        result.append(item)
+
+    if len(result) >= 3:
+        return result
+
+    # Return fallbacks if not enough itineraries
+    curated = [
+        {
+            "id": 9991,
+            "title": "Tour Trải Nghiệm Cafe & Check-in Quận 1",
+            "mood_code": "chill",
+            "district_preference": "Quận 1",
+            "total_cost_estimated": 280000,
+            "total_duration_min": 150,
+            "transport_mode": "Tự đi xe máy",
+            "created_at": "2026-06-29T12:00:00Z",
+            "select_count": 42,
+            "stops": [
+                {
+                    "step": 1,
+                    "provider_id": 13,
+                    "title": "Cộng Cà Phê",
+                    "district": "Quận 1",
+                    "category": "Quán uống / cafe",
+                    "arrival_time": "15:00",
+                    "duration_min": 45,
+                    "cost_estimated": 60000,
+                    "reason": "Không gian hoài niệm phù hợp để bắt đầu buổi chiều nhẹ nhàng.",
+                    "image_url": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&h=400&fit=crop",
+                    "latitude": 10.776,
+                    "longitude": 106.701
+                },
+                {
+                    "step": 2,
+                    "provider_id": 1,
+                    "title": "Trần Pizza",
+                    "district": "Quận 1",
+                    "category": "Quán ăn / nhà hàng",
+                    "arrival_time": "16:00",
+                    "duration_min": 60,
+                    "cost_estimated": 150000,
+                    "reason": "Điểm nạp năng lượng lý tưởng với món Pizza nướng củi thơm ngon.",
+                    "image_url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&h=400&fit=crop",
+                    "latitude": 10.778,
+                    "longitude": 106.702
+                },
+                {
+                    "step": 3,
+                    "provider_id": 3,
+                    "title": "Đảo Space",
+                    "district": "Quận 1",
+                    "category": "Quán uống / cafe",
+                    "arrival_time": "17:15",
+                    "duration_min": 45,
+                    "cost_estimated": 70000,
+                    "reason": "Kết thúc buổi chiều tại quán cafe hiện đại, lý tưởng để trò chuyện.",
+                    "image_url": "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600&h=400&fit=crop",
+                    "latitude": 10.775,
+                    "longitude": 106.698
+                }
+            ]
+        },
+        {
+            "id": 9992,
+            "title": "Food Tour Ẩm Thực Vỉa Hè Sài Gòn Q5",
+            "mood_code": "foodie",
+            "district_preference": "Quận 5",
+            "total_cost_estimated": 200000,
+            "total_duration_min": 160,
+            "transport_mode": "Tự đi xe máy",
+            "created_at": "2026-06-29T15:00:00Z",
+            "select_count": 35,
+            "stops": [
+                {
+                    "step": 1,
+                    "provider_id": 22,
+                    "title": "Cơm Tấm Huỳnh Mẫn Đạt",
+                    "district": "Quận 5",
+                    "category": "Quán ăn / nhà hàng",
+                    "arrival_time": "18:00",
+                    "duration_min": 50,
+                    "cost_estimated": 55000,
+                    "reason": "Đặc sản cơm tấm Sài Gòn thơm nức mũi, sườn nướng mọng nước cực đã.",
+                    "image_url": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&h=400&fit=crop",
+                    "latitude": 10.755,
+                    "longitude": 106.678
+                },
+                {
+                    "step": 2,
+                    "provider_id": 11,
+                    "title": "CAFE 68",
+                    "district": "Quận 5",
+                    "category": "Quán uống / cafe",
+                    "arrival_time": "19:00",
+                    "duration_min": 45,
+                    "cost_estimated": 45000,
+                    "reason": "Nơi nghỉ chân hoàn hảo sau bữa tối no căng bụng.",
+                    "image_url": "https://images.unsplash.com/photo-1498804103079-a6351b050096?w=600&h=400&fit=crop",
+                    "latitude": 10.752,
+                    "longitude": 106.675
+                },
+                {
+                    "step": 3,
+                    "provider_id": 30,
+                    "title": "Hồ Thị Kỷ",
+                    "district": "Quận 5",
+                    "category": "Quán ăn / nhà hàng",
+                    "arrival_time": "20:00",
+                    "duration_min": 65,
+                    "cost_estimated": 100000,
+                    "reason": "Thiên đường ẩm thực ăn vặt sầm uất bậc nhất Sài Thành.",
+                    "image_url": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&h=400&fit=crop",
+                    "latitude": 10.765,
+                    "longitude": 106.672
+                }
+            ]
+        },
+        {
+            "id": 9993,
+            "title": "Vibe Đêm Lãng Mạn & Nightlife Quận 1",
+            "mood_code": "date",
+            "district_preference": "Quận 1",
+            "total_cost_estimated": 550000,
+            "total_duration_min": 170,
+            "transport_mode": "Thuê xe",
+            "created_at": "2026-06-29T20:00:00Z",
+            "select_count": 29,
+            "stops": [
+                {
+                    "step": 1,
+                    "provider_id": 15,
+                    "title": "Nhà Hàng Hương Việt",
+                    "district": "Quận 1",
+                    "category": "Quán ăn / nhà hàng",
+                    "arrival_time": "19:30",
+                    "duration_min": 60,
+                    "cost_estimated": 280000,
+                    "reason": "Không gian ấm cúng, sang trọng, thực đơn phong phú thích hợp cho các buổi hẹn hò.",
+                    "image_url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop",
+                    "latitude": 10.774,
+                    "longitude": 106.703
+                },
+                {
+                    "step": 2,
+                    "provider_id": 12,
+                    "title": "The Hipster",
+                    "district": "Quận 1",
+                    "category": "Nightlife / bar",
+                    "arrival_time": "20:45",
+                    "duration_min": 70,
+                    "cost_estimated": 200000,
+                    "reason": "Nhạc hay, đồ uống pha chế cực chất, view phố phường chill vô cùng.",
+                    "image_url": "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=600&h=400&fit=crop",
+                    "latitude": 10.773,
+                    "longitude": 106.701
+                },
+                {
+                    "step": 3,
+                    "provider_id": 9,
+                    "title": "K COFFEE",
+                    "district": "Quận 1",
+                    "category": "Quán uống / cafe",
+                    "arrival_time": "22:05",
+                    "duration_min": 40,
+                    "cost_estimated": 70000,
+                    "reason": "Khép lại một đêm trọn vẹn tại góc phố nhộn nhịp cùng ly bạc xỉu đá thơm ngậy.",
+                    "image_url": "https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=600&h=400&fit=crop",
+                    "latitude": 10.776,
+                    "longitude": 106.702
+                }
+            ]
+        }
+    ]
+
+    for c in curated:
+        c["total_cost"] = _format_cost(c["total_cost_estimated"])
+        c["total_duration"] = _format_duration(c["total_duration_min"])
+
+    return curated
+
+
 @router.get("/{itinerary_id}")
 def get_itinerary(
     itinerary_id: int,
     conn: Any = Depends(get_db_dependency),
 ):
     """Retrieve a saved itinerary."""
+    if itinerary_id in (9991, 9992, 9993):
+        curated_list = [
+            {
+                "id": 9991,
+                "title": "Tour Trải Nghiệm Cafe & Check-in Quận 1",
+                "mood_code": "chill",
+                "district_preference": "Quận 1",
+                "total_cost_estimated": 280000,
+                "total_duration_min": 150,
+                "transport_mode": "Tự đi xe máy",
+                "created_at": "2026-06-29T12:00:00Z",
+                "stops": [
+                    {
+                        "step": 1,
+                        "provider_id": 13,
+                        "title": "Cộng Cà Phê",
+                        "district": "Quận 1",
+                        "category": "Quán uống / cafe",
+                        "arrival_time": "15:00",
+                        "duration_min": 45,
+                        "cost_estimated": 60000,
+                        "reason": "Không gian hoài niệm phù hợp để bắt đầu buổi chiều nhẹ nhàng.",
+                        "image_url": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&h=400&fit=crop",
+                        "latitude": 10.776,
+                        "longitude": 106.701
+                    },
+                    {
+                        "step": 2,
+                        "provider_id": 1,
+                        "title": "Trần Pizza",
+                        "district": "Quận 1",
+                        "category": "Quán ăn / nhà hàng",
+                        "arrival_time": "16:00",
+                        "duration_min": 60,
+                        "cost_estimated": 150000,
+                        "reason": "Điểm nạp năng lượng lý tưởng với món Pizza nướng củi thơm ngon.",
+                        "image_url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&h=400&fit=crop",
+                        "latitude": 10.778,
+                        "longitude": 106.702
+                    },
+                    {
+                        "step": 3,
+                        "provider_id": 3,
+                        "title": "Đảo Space",
+                        "district": "Quận 1",
+                        "category": "Quán uống / cafe",
+                        "arrival_time": "17:15",
+                        "duration_min": 45,
+                        "cost_estimated": 70000,
+                        "reason": "Kết thúc buổi chiều tại quán cafe hiện đại, lý tưởng để trò chuyện.",
+                        "image_url": "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=600&h=400&fit=crop",
+                        "latitude": 10.775,
+                        "longitude": 106.698
+                    }
+                ]
+            },
+            {
+                "id": 9992,
+                "title": "Food Tour Ẩm Thực Vỉa Hè Sài Gòn Q5",
+                "mood_code": "foodie",
+                "district_preference": "Quận 5",
+                "total_cost_estimated": 200000,
+                "total_duration_min": 160,
+                "transport_mode": "Tự đi xe máy",
+                "created_at": "2026-06-29T15:00:00Z",
+                "stops": [
+                    {
+                        "step": 1,
+                        "provider_id": 22,
+                        "title": "Cơm Tấm Huỳnh Mẫn Đạt",
+                        "district": "Quận 5",
+                        "category": "Quán ăn / nhà hàng",
+                        "arrival_time": "18:00",
+                        "duration_min": 50,
+                        "cost_estimated": 55000,
+                        "reason": "Đặc sản cơm tấm Sài Gòn thơm nức mũi, sườn nướng mọng nước cực đã.",
+                        "image_url": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&h=400&fit=crop",
+                        "latitude": 10.755,
+                        "longitude": 106.678
+                    },
+                    {
+                        "step": 2,
+                        "provider_id": 11,
+                        "title": "CAFE 68",
+                        "district": "Quận 5",
+                        "category": "Quán uống / cafe",
+                        "arrival_time": "19:00",
+                        "duration_min": 45,
+                        "cost_estimated": 45000,
+                        "reason": "Nơi nghỉ chân hoàn hảo sau bữa tối no căng bụng.",
+                        "image_url": "https://images.unsplash.com/photo-1498804103079-a6351b050096?w=600&h=400&fit=crop",
+                        "latitude": 10.752,
+                        "longitude": 106.675
+                    },
+                    {
+                        "step": 3,
+                        "provider_id": 30,
+                        "title": "Hồ Thị Kỷ",
+                        "district": "Quận 5",
+                        "category": "Quán ăn / nhà hàng",
+                        "arrival_time": "20:00",
+                        "duration_min": 65,
+                        "cost_estimated": 100000,
+                        "reason": "Thiên đường ẩm thực ăn vặt sầm uất bậc nhất Sài Thành.",
+                        "image_url": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&h=400&fit=crop",
+                        "latitude": 10.765,
+                        "longitude": 106.672
+                    }
+                ]
+            },
+            {
+                "id": 9993,
+                "title": "Vibe Đêm Lãng Mạn & Nightlife Quận 1",
+                "mood_code": "date",
+                "district_preference": "Quận 1",
+                "total_cost_estimated": 550000,
+                "total_duration_min": 170,
+                "transport_mode": "Thuê xe",
+                "created_at": "2026-06-29T20:00:00Z",
+                "stops": [
+                    {
+                        "step": 1,
+                        "provider_id": 15,
+                        "title": "Nhà Hàng Hương Việt",
+                        "district": "Quận 1",
+                        "category": "Quán ăn / nhà hàng",
+                        "arrival_time": "19:30",
+                        "duration_min": 60,
+                        "cost_estimated": 280000,
+                        "reason": "Không gian ấm cúng, sang trọng, thực đơn phong phú thích hợp cho các buổi hẹn hò.",
+                        "image_url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop",
+                        "latitude": 10.774,
+                        "longitude": 106.703
+                    },
+                    {
+                        "step": 2,
+                        "provider_id": 12,
+                        "title": "The Hipster",
+                        "district": "Quận 1",
+                        "category": "Nightlife / bar",
+                        "arrival_time": "20:45",
+                        "duration_min": 70,
+                        "cost_estimated": 200000,
+                        "reason": "Nhạc hay, đồ uống pha chế cực chất, view phố phường chill vô cùng.",
+                        "image_url": "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=600&h=400&fit=crop",
+                        "latitude": 10.773,
+                        "longitude": 106.701
+                    },
+                    {
+                        "step": 3,
+                        "provider_id": 9,
+                        "title": "K COFFEE",
+                        "district": "Quận 1",
+                        "category": "Quán uống / cafe",
+                        "arrival_time": "22:05",
+                        "duration_min": 40,
+                        "cost_estimated": 70000,
+                        "reason": "Khép lại một đêm trọi vẹn tại góc phố nhộn nhịp cùng ly bạc xỉu đá thơm ngậy.",
+                        "image_url": "https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=600&h=400&fit=crop",
+                        "latitude": 10.776,
+                        "longitude": 106.702
+                    }
+                ]
+            }
+        ]
+        match = [c for c in curated_list if c["id"] == itinerary_id]
+        if match:
+            itinerary = dict(match[0])
+            itinerary["total_cost"] = _format_cost(itinerary["total_cost_estimated"])
+            itinerary["total_duration"] = _format_duration(itinerary["total_duration_min"])
+            return itinerary
+
     row = conn.execute(
         "SELECT * FROM itineraries WHERE id = ?", (itinerary_id,)
     ).fetchone()
@@ -507,3 +950,6 @@ def submit_feedback(
     )
     conn.commit()
     return {"success": True, "message": "Cảm ơn bạn đã đánh giá!"}
+
+
+

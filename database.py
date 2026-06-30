@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     preferences_json TEXT,
     budget_default INTEGER,
+    role TEXT NOT NULL DEFAULT 'user',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS itineraries (
@@ -284,7 +285,29 @@ def init_db() -> None:
 
     conn = _make_sqlite(DB_PATH)
     try:
+        # Alter table to add role if missing
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+
         conn.executescript(SCHEMA_EXTENSIONS)
+
+        # Seed admin user
+        admin = conn.execute("SELECT id FROM users WHERE role = 'admin' OR email = 'admin@wanderhub.vn'").fetchone()
+        if not admin:
+            import hashlib
+            import secrets
+            salt = secrets.token_hex(16)
+            digest = hashlib.pbkdf2_hmac("sha256", b"admin123", salt.encode("utf-8"), 120_000)
+            password_hash = f"pbkdf2_sha256$120000${salt}${digest.hex()}"
+            conn.execute(
+                "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
+                ("Wanderhub Admin", "admin@wanderhub.vn", password_hash, "admin")
+            )
+            conn.commit()
+
         if conn.execute("SELECT COUNT(*) AS cnt FROM vehicle_fleet").fetchone()["cnt"] == 0:
             conn.executemany(
                 "INSERT INTO vehicle_fleet (vehicle_type, label, total_count, available_count) VALUES (?, ?, ?, ?)",
@@ -316,7 +339,10 @@ def init_db() -> None:
         conn.commit()
     finally:
         conn.close()
-    print(f"[DB] SQLite schema + seed applied to {DB_PATH}")
+    try:
+        print(f"[DB] SQLite schema + seed applied to {DB_PATH}")
+    except Exception:
+        print("[DB] SQLite schema + seed applied successfully.")
 
 
 @contextmanager
